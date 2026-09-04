@@ -29,7 +29,10 @@ export function Reveal({
   return (
     <motion.div
       className={cn(className)}
-      initial={{ opacity: 0, y }}
+      // Never leave content hidden if the initial intersection check is missed
+      // during hydration. The in-view animation still runs when the observer
+      // is available, but the page remains readable on a cold load.
+      initial={false}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once, margin: "-60px" }}
       transition={{ duration: 0.75, delay, ease: [0.22, 1, 0.36, 1] }}
@@ -60,7 +63,9 @@ export function RevealGroup({
   return (
     <motion.div
       className={cn(className)}
-      initial="hidden"
+      // Render the group immediately; individual items can still animate when
+      // Framer Motion receives the in-view update.
+      initial={false}
       whileInView="visible"
       viewport={{ once: true, margin: "-60px" }}
       variants={{
@@ -88,6 +93,7 @@ export function RevealItem({
   return (
     <motion.div
       className={cn(className)}
+      initial={false}
       variants={{
         hidden: { opacity: 0, y: 22 },
         visible: {
