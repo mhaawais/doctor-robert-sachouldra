@@ -30,7 +30,7 @@ export const author: Author = {
   bio: "Dr. Robert Sakulanda, MD, MBA, FAAFP, DABFM, is a Zambian-born family medicine physician, hospitalist, biotechnologist, and author whose career bridges frontline patient care and scientific discovery. With more than two decades of clinical practice, he now cares for hospitalized patients in Georgia — and, after caring for critically ill patients during the COVID-19 pandemic, he earned a Master of Science in Applied Biotechnology from the University of Wisconsin–Madison, deepening his understanding of vaccines, gene editing, and emerging medical technologies. Beyond the ward, he is an entrepreneur and community builder: the owner of Mufulira United Football Club in Zambia, a mentor to young African entrepreneurs, and an advocate for healthier futures in the United States, Zambia, and around the world.",
   mission:
     "To practice medicine with humanity, pursue science with curiosity, and tell stories that connect people to a healthier future.",
-  portrait: null, // [AUTHOR PHOTO OPTIONAL] — drop real portrait at /public/images/author/portrait.jpg
+  portrait: "/images/author/portrait.jpeg",
 };
 
 export const authorRolesForDisplay = author.roles.slice(0, 3); // Physician. Scientist. Author.

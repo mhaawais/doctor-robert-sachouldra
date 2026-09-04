@@ -44,7 +44,7 @@ export const books: Book[] = [
     publisher: null, // [PUBLISHER REQUIRED]
     formats: [], // [FORMATS REQUIRED] — e.g. Hardcover, Paperback, eBook, Audiobook
     purchaseLinks: [], // [PURCHASE LINK REQUIRED] — retailer URLs when available
-    coverImage: "/images/books/forthcoming-cover-placeholder.png", // designed placeholder — replace with real cover
+    coverImage: "/images/books/forthcoming-debut/cover.jpeg",
     status: "forthcoming",
     featured: true,
     authorNote: null, // [AUTHOR NOTE OPTIONAL] — a personal note from Dr. Sakulanda
