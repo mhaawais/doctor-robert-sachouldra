@@ -1,0 +1,28 @@
+// Prisma schema — Dr. Robert Sakulanda author website
+// SQLite via Prisma. Powers the contact form and newsletter signup with a
+// real, honest backend (submissions are stored; no fake email delivery).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  reason    String?
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

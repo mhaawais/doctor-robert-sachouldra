@@ -1,0 +1,202 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* shadcn-compatible semantic tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* ── Editorial brand palette ─────────────────────────────── */
+  --color-ink: #0e1b2a;            /* deep navy — primary text, dark sections */
+  --color-ink-soft: #16283c;       /* lifted navy for dark panels */
+  --color-navy: #1d3a4f;           /* secondary navy */
+  --color-teal: #3e6f77;           /* muted teal accent */
+  --color-teal-soft: #5c8a92;
+  --color-ivory: #f7f4ee;          /* warm ivory — page background */
+  --color-ivory-deep: #efe9dd;     /* deeper ivory for alt sections */
+  --color-paper: #fffdf9;          /* near-white card surface */
+  --color-gold: #b59a62;           /* muted bronze accent */
+  --color-gold-deep: #94794a;      /* darker bronze for text-on-light */
+  --color-gold-soft: #d9c69a;      /* light gold for hairlines on dark */
+  --color-slate-body: #46586b;     /* readable muted body text on ivory */
+  --color-hairline: #e3dccb;       /* warm hairline borders */
+  --color-nightline: #24425a;      /* hairline borders on dark navy */
+}
+
+:root {
+  --radius: 0.375rem;
+  --background: #f7f4ee;
+  --foreground: #0e1b2a;
+  --card: #fffdf9;
+  --card-foreground: #0e1b2a;
+  --popover: #fffdf9;
+  --popover-foreground: #0e1b2a;
+  --primary: #0e1b2a;
+  --primary-foreground: #f7f4ee;
+  --secondary: #e9e2d2;
+  --secondary-foreground: #0e1b2a;
+  --muted: #ece6d9;
+  --muted-foreground: #46586b;
+  --accent: #f0e9da;
+  --accent-foreground: #0e1b2a;
+  --destructive: #a8433a;
+  --border: #e3dccb;
+  --input: #ddd4bf;
+  --ring: #b59a62;
+  --chart-1: #1d3a4f;
+  --chart-2: #b59a62;
+  --chart-3: #3e6f77;
+  --chart-4: #94794a;
+  --chart-5: #46586b;
+  --sidebar: #fffdf9;
+  --sidebar-foreground: #0e1b2a;
+  --sidebar-primary: #0e1b2a;
+  --sidebar-primary-foreground: #f7f4ee;
+  --sidebar-accent: #f0e9da;
+  --sidebar-accent-foreground: #0e1b2a;
+  --sidebar-border: #e3dccb;
+  --sidebar-ring: #b59a62;
+}
+
+.dark {
+  --background: #0e1b2a;
+  --foreground: #f7f4ee;
+  --card: #16283c;
+  --card-foreground: #f7f4ee;
+  --popover: #16283c;
+  --popover-foreground: #f7f4ee;
+  --primary: #f7f4ee;
+  --primary-foreground: #0e1b2a;
+  --secondary: #1d3a4f;
+  --secondary-foreground: #f7f4ee;
+  --muted: #1d3a4f;
+  --muted-foreground: #a9b6c2;
+  --accent: #1d3a4f;
+  --accent-foreground: #f7f4ee;
+  --destructive: #c96f5e;
+  --border: #24425a;
+  --input: #24425a;
+  --ring: #b59a62;
+  --chart-1: #d9c69a;
+  --chart-2: #5c8a92;
+  --chart-3: #b59a62;
+  --chart-4: #a9b6c2;
+  --chart-5: #7d8fa1;
+  --sidebar: #16283c;
+  --sidebar-foreground: #f7f4ee;
+  --sidebar-primary: #f7f4ee;
+  --sidebar-primary-foreground: #0e1b2a;
+  --sidebar-accent: #1d3a4f;
+  --sidebar-accent-foreground: #f7f4ee;
+  --sidebar-border: #24425a;
+  --sidebar-ring: #b59a62;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "kern" 1, "liga" 1;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background-color: #b59a62;
+    color: #0e1b2a;
+  }
+  h1, h2, h3, h4 {
+    @apply font-serif;
+    letter-spacing: -0.01em;
+  }
+  /* Visible, accessible focus states */
+  :focus-visible {
+    outline: 2px solid #b59a62;
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Editorial drop cap — a real Tailwind utility so variants can target it */
+@utility drop-cap {
+  &::first-letter {
+    float: left;
+    font-family: var(--font-playfair), Georgia, serif;
+    font-size: 3.4em;
+    line-height: 0.82;
+    padding-right: 0.12em;
+    padding-top: 0.06em;
+    color: #94794a;
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  }
+}
