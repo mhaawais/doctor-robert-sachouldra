@@ -1,24 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { site } from "@/data/site";
 import { personSchema, webSiteSchema } from "@/lib/structured-data";
-
-// Editorial typography system: elegant serif headings + readable sans body
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.url),
@@ -71,7 +57,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${playfair.variable} ${sourceSans.variable} flex min-h-screen flex-col bg-background font-sans text-foreground antialiased`}
+        className="flex min-h-screen flex-col bg-background font-sans text-foreground antialiased"
       >
         <SiteHeader />
         <main id="main-content" className="flex-1 pt-[72px]">

@@ -33,7 +33,7 @@ export async function getExpertiseAreas() {
 
 export async function getBooks(): Promise<Book[]> {
   // Sorted: featured first, then published > announced > forthcoming
-  const statusOrder = { published: 0, announced: 1, forthcoming: 2 } as const;
+  const statusOrder = { published: 0, announced: 1 } as const;
   return [...books].sort((a, b) => {
     if (a.featured !== b.featured) return a.featured ? -1 : 1;
     return statusOrder[a.status] - statusOrder[b.status];

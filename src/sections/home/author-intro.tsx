@@ -22,7 +22,7 @@ export function AuthorIntro() {
             />
           </div>
           <div className="lg:col-span-8">
-            <RevealGroup className="space-y-6">
+            <RevealGroup className="elevated-paper space-y-6 rounded-md border border-hairline bg-paper p-7 sm:p-10">
               <RevealItem>
                 <p className="flex flex-wrap gap-x-4 gap-y-1 font-serif text-2xl text-ink sm:text-3xl">
                   {author.roles.slice(0, 3).map((role, i) => (

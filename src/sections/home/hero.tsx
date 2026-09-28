@@ -54,7 +54,7 @@ export function Hero() {
                 href="/books"
                 className="inline-flex h-[52px] items-center justify-center rounded-sm bg-ink px-8 text-sm font-semibold uppercase tracking-[0.14em] text-ivory shadow-[0_16px_36px_-16px_rgba(14,27,42,0.6)] transition-all hover:-translate-y-0.5 hover:bg-navy"
               >
-                Explore My Books
+                Buy the book
                 <ArrowRight className="ml-2.5 h-4 w-4" aria-hidden="true" />
               </Link>
               <Link
@@ -84,7 +84,7 @@ export function Hero() {
             />
             <AuthorPortrait caption={false} priority />
             <p className="mt-4 text-center text-xs tracking-wide text-ink/45">
-              {author.name} — official portrait coming soon
+              {author.name} — official portrait
             </p>
           </Reveal>
         </div>

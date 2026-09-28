@@ -196,7 +196,7 @@ The project is Vercel-ready out of the box:
 
 - Blog posts shipped in this build are **clearly-flagged sample content**
   (`isSample: true`) demonstrating the system — replace before launch.
-- The book is unpublished; its page intentionally uses "to be announced"
-  states instead of invented metadata.
+- Book metadata is limited to verified retailer information; unknown fields are
+  intentionally omitted.
 - The privacy policy is a well-formed template pending client legal review.
 - Social icons are hidden entirely until real profile URLs exist (by design).

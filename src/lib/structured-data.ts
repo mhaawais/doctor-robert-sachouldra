@@ -60,13 +60,33 @@ export function articleSchema(article: {
   };
 }
 
-export function bookSchema(book: { title: string; slug: string; description: string | null }) {
+export function bookSchema(book: {
+  title: string;
+  slug: string;
+  description: string;
+  image: string | null;
+  amazonUrl?: string;
+}) {
   return {
     "@context": "https://schema.org",
     "@type": "Book",
     name: book.title,
-    ...(book.description ? { description: book.description } : {}),
+    description: book.description,
     url: `${site.url}/books/${book.slug}`,
+    ...(book.image ? { image: `${site.url}${book.image}` } : {}),
+    ...(book.amazonUrl ? { sameAs: book.amazonUrl } : {}),
     author: { "@type": "Person", name: author.name, url: site.url },
+  };
+}
+
+export function breadcrumbSchema(book: { title: string; slug: string }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: site.url },
+      { "@type": "ListItem", position: 2, name: "Books", item: `${site.url}/books` },
+      { "@type": "ListItem", position: 3, name: book.title, item: `${site.url}/books/${book.slug}` },
+    ],
   };
 }

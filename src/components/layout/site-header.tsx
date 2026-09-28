@@ -99,9 +99,9 @@ export function SiteHeader() {
           ))}
           <Link
             href="/books"
-            className="rounded-sm bg-ink px-5 py-2.5 text-sm font-semibold tracking-wide text-ivory transition-colors hover:bg-navy"
+            className="rounded-sm bg-ink px-5 py-2.5 text-sm font-semibold tracking-wide text-ivory shadow-[0_10px_20px_-12px_rgba(14,27,42,.8)] transition-all hover:-translate-y-0.5 hover:bg-navy"
           >
-            Explore Books
+            Buy the book
           </Link>
         </nav>
 
@@ -155,9 +155,9 @@ export function SiteHeader() {
             <Link
               href="/books"
               tabIndex={open ? 0 : -1}
-              className="inline-flex items-center justify-center rounded-sm bg-ink px-8 py-3.5 text-sm font-semibold uppercase tracking-[0.14em] text-ivory"
+              className="inline-flex items-center justify-center rounded-sm bg-ink px-8 py-3.5 text-sm font-semibold uppercase tracking-[0.14em] text-ivory shadow-[0_14px_30px_-18px_rgba(14,27,42,.75)]"
             >
-              Explore Books
+              Buy the book
             </Link>
           </div>
         </nav>

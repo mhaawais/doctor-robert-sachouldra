@@ -1,5 +1,5 @@
 /**
- * Renders brand-critical design assets (OG image + forthcoming book cover
+ * Renders brand-critical design assets (OG image + generic book cover
  * placeholder) from SVG → PNG via sharp, using the site's real fonts.
  * Run: bun /home/z/my-project/scripts/render-design-assets.mjs
  */
@@ -54,7 +54,7 @@ const ogSvg = `
   <text x="600" y="534" text-anchor="middle" font-family="Source Sans 3" font-weight="400" font-size="19" letter-spacing="5" fill="#f7f4ee" fill-opacity="0.45">WWW.ROBERTSAKULANDA.COM</text>
 </svg>`;
 
-// ── FORTHCOMING BOOK COVER PLACEHOLDER (700x1050, 2:3) ────────────────
+// ── GENERIC BOOK COVER PLACEHOLDER (700x1050, 2:3) ────────────────────
 const coverSvg = `
 <svg width="700" height="1050" viewBox="0 0 700 1050" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -95,12 +95,12 @@ const coverSvg = `
   <circle cx="350" cy="452" r="30" fill="none" stroke="#b59a62" stroke-opacity="0.6" stroke-width="1.5"/>
   <path d="M 336 452 L 347 463 L 366 440" stroke="#d9c69a" stroke-opacity="0.85" stroke-width="2" fill="none"/>
 
-  <!-- center: forthcoming title -->
+  <!-- center: placeholder title -->
   <text x="350" y="700" text-anchor="middle" font-family="Playfair Display" font-style="italic" font-size="34" fill="#f7f4ee" fill-opacity="0.85">Title to be</text>
   <text x="350" y="744" text-anchor="middle" font-family="Playfair Display" font-style="italic" font-size="34" fill="#f7f4ee" fill-opacity="0.85">announced</text>
 
   <!-- bottom: status -->
-  <text x="350" y="920" text-anchor="middle" font-family="Source Sans 3" font-weight="600" font-size="18" letter-spacing="10" fill="#f7f4ee" fill-opacity="0.5">FORTHCOMING</text>
+  <text x="350" y="920" text-anchor="middle" font-family="Source Sans 3" font-weight="600" font-size="18" letter-spacing="10" fill="#f7f4ee" fill-opacity="0.5">BOOK</text>
 </svg>`;
 
 async function render(name, svg) {
@@ -110,5 +110,5 @@ async function render(name, svg) {
 }
 
 await render("general/og-image.png", ogSvg);
-await render("books/forthcoming-cover-placeholder.png", coverSvg);
+await render("books/book-cover-placeholder.png", coverSvg);
 console.log("done");

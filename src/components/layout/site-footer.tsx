@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Container } from "@/components/common/container";
 import { NewsletterForm } from "@/components/layout/newsletter-form";
 import { SocialLinks } from "@/components/common/social-links";
+import { books } from "@/data/books";
 import { site } from "@/data/site";
 
 /**
@@ -10,6 +11,9 @@ import { site } from "@/data/site";
  */
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const amazonLink = books
+    .find((book) => book.featured)
+    ?.purchaseLinks.find((link) => link.retailer === "Amazon");
 
   return (
     <footer className="mt-auto border-t border-nightline bg-ink text-ivory pb-[env(safe-area-inset-bottom)]">
@@ -25,12 +29,22 @@ export function SiteFooter() {
               {site.positioning}
             </p>
             <SocialLinks socials={site.socials} tone="dark" className="mt-6" />
+            {amazonLink ? (
+              <a
+                href={amazonLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex items-center rounded-sm border border-gold/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-gold-soft transition-colors hover:bg-gold hover:text-ink"
+              >
+                Buy the book on Amazon
+              </a>
+            ) : null}
           </div>
 
           {/* Navigation */}
           <nav aria-label="Footer" className="md:col-span-3">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold-soft">
-              Explore
+              Navigate
             </p>
             <ul className="mt-5 space-y-3">
               {site.nav.map((item) => (

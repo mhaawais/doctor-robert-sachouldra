@@ -53,7 +53,7 @@ export function AuthorPortrait({
       </div>
       {caption ? (
         <figcaption className="mt-3 text-center text-xs tracking-wide text-slate-body/80">
-          Official author portrait coming soon
+          Official author portrait
         </figcaption>
       ) : null}
     </figure>

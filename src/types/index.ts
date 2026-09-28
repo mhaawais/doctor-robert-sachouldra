@@ -79,17 +79,14 @@ export interface JourneyStep {
   caption: string;
 }
 
-export type BookStatus = "forthcoming" | "announced" | "published";
+export type BookStatus = "announced" | "published";
 
 export interface Book {
   slug: string;
-  /**
-   * Real title. `null` = not yet provided → UI shows "Title to Be Announced".
-   * NEVER fabricate. See CONTENT_NEEDED.md.
-   */
-  title: string | null;
+  /** Title supplied by a verified source. */
+  title: string;
   subtitle: string | null;
-  description: string | null;
+  description: string;
   /** Longer "why this book" narrative grounded in verified themes only */
   whyThisBook: string[] | null;
   themes: string[];
@@ -99,9 +96,9 @@ export interface Book {
   isbn: string | null;
   publisher: string | null;
   formats: string[];
-  /** Purchase / retailer links — empty array renders the "coming soon" state */
+  /** Verified purchase or retailer links. */
   purchaseLinks: PurchaseLink[];
-  /** Designed placeholder cover path (public/) — replaced when real cover arrives */
+  /** Cover path relative to /public. */
   coverImage: string | null;
   status: BookStatus;
   featured: boolean;

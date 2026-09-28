@@ -1,13 +1,9 @@
-// Prisma schema — Dr. Robert Sakulanda author website
-// SQLite via Prisma. Powers the contact form and newsletter signup with a
-// real, honest backend (submissions are stored; no fake email delivery).
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -25,4 +21,114 @@ model NewsletterSubscriber {
   id        String   @id @default(cuid())
   email     String   @unique
   createdAt DateTime @default(now())
+}
+
+enum PaymentStatus {
+  PENDING_PAYMENT
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum FulfillmentStatus {
+  NOT_SUBMITTED
+  FULFILLMENT_SUBMITTED
+  FULFILLMENT_FAILED
+  MANUAL_REVIEW
+  IN_PRODUCTION
+  SHIPPED
+  CANCELLED
+}
+
+enum BookFormat {
+  PAPERBACK
+  HARDCOVER
+}
+
+model Order {
+  id                String            @id @default(cuid())
+  orderNumber       String            @unique
+  email             String
+  customerName      String
+  phone             String?
+  format            BookFormat
+  quantity          Int
+  unitPrice         Int
+  shippingAmount    Int
+  totalAmount       Int
+  currency          String            @default("USD")
+  shippingMethod    String
+  addressLine1      String
+  addressLine2      String?
+  city              String
+  stateProvince     String
+  postalCode        String
+  country           String
+  paymentStatus     PaymentStatus     @default(PENDING_PAYMENT)
+  fulfillmentStatus FulfillmentStatus @default(NOT_SUBMITTED)
+  squarePaymentId   String?           @unique
+  squareOrderId     String?
+  luluPrintJobId    String?           @unique
+  luluStatus        String?
+  trackingNumber    String?
+  trackingUrl       String?
+  paymentKey        String            @unique
+  customerAccessTokenHash String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  paymentAttempts   PaymentAttempt[]
+  accessSessions    OrderAccessSession[]
+}
+
+model OrderAccessSession {
+  id        String   @id @default(cuid())
+  orderId   String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, expiresAt])
+  @@index([expiresAt])
+}
+
+model PaymentAttempt {
+  id                   String               @id @default(cuid())
+  orderId              String
+  attemptTokenHash     String               @unique
+  squareIdempotencyKey String               @unique
+  status               PaymentAttemptStatus @default(PENDING)
+  squarePaymentId      String?              @unique
+  failureReason        String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  order                Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  externalId  String
+  payload     Json
+  processedAt DateTime @default(now())
+
+  @@unique([provider, externalId])
 }

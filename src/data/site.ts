@@ -18,7 +18,7 @@ export const site: SiteSettings = {
   nav: [
     { label: "Home", href: "/" },
     { label: "About", href: "/about" },
-    { label: "Books", href: "/books" },
+    { label: "Buy Book", href: "/books" },
     { label: "Blog", href: "/blog" },
     { label: "Contact", href: "/contact" },
   ],

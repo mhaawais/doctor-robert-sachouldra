@@ -45,8 +45,8 @@ export function MedicineBiotech() {
         <RevealGroup className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {pillars.map(({ icon: Icon, title, text }) => (
             <RevealItem key={title}>
-              <div className="group flex h-full flex-col rounded-md border border-hairline bg-card p-7 shadow-[0_10px_36px_-22px_rgba(14,27,42,0.4)] transition-all duration-300 hover:-translate-y-1 hover:border-gold/50">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/40 bg-accent text-gold-deep">
+              <div className="elevated-paper group flex h-full flex-col rounded-md border border-hairline bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:border-gold/60 hover:shadow-[0_24px_48px_-30px_rgba(14,27,42,.45)]">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-gold/40 bg-accent text-gold-deep transition-transform duration-300 group-hover:scale-105">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <h3 className="mt-5 font-serif text-xl text-ink">{title}</h3>

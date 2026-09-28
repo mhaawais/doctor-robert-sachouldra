@@ -310,20 +310,20 @@ export default async function AboutPage() {
       </section>
 
       {/* ── CTA ───────────────────────────────────────────────── */}
-      <section aria-label="Explore books" className="border-t border-hairline bg-ink text-ivory">
+      <section aria-label="Buy the book" className="border-t border-hairline bg-ink text-ivory">
         <Container className="py-16 text-center sm:py-20">
           <Reveal>
             <h2 className="mx-auto max-w-2xl font-serif text-3xl leading-tight text-balance sm:text-4xl">
               The journey continues on the page.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-ivory/70">
-              Discover the book currently in the works, and the ideas behind it.
+              Read Behind the Mask: one doctor, many battles, and a purpose greater than fear.
             </p>
             <Link
               href="/books"
               className="mt-8 inline-flex h-[52px] items-center justify-center rounded-sm bg-gold px-8 text-sm font-semibold uppercase tracking-[0.14em] text-ink transition-colors hover:bg-gold-soft"
             >
-              Explore Books
+              Buy the book
               <ArrowRight className="ml-2.5 h-4 w-4" aria-hidden="true" />
             </Link>
           </Reveal>

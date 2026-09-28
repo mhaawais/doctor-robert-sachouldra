@@ -26,7 +26,7 @@ export default function NotFound() {
             href="/books"
             className="inline-flex h-[52px] items-center justify-center rounded-sm border border-ink/25 px-8 text-sm font-semibold uppercase tracking-[0.14em] text-ink transition-colors hover:border-gold hover:text-gold-deep"
           >
-            Explore Books
+            Buy the book
           </Link>
         </div>
       </Container>

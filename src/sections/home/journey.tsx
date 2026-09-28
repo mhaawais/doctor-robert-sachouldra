@@ -21,17 +21,17 @@ export async function Journey() {
           description="Six chapters that trace one physician's path through crisis, science, and purpose."
         />
 
-        <RevealGroup className="mt-16 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+        <RevealGroup className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {steps.map((step, i) => (
             <RevealItem key={step.id} className="relative">
-              <div className="flex h-full flex-col border-t-2 border-gold/50 pt-6">
+              <div className="elevated-paper group flex h-full flex-col rounded-md border border-hairline bg-paper p-7 transition-all duration-300 hover:-translate-y-1 hover:border-gold/60">
                 <span
                   aria-hidden="true"
-                  className="font-serif text-5xl leading-none text-ink/12"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-ink font-serif text-base text-gold-soft"
                 >
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <h3 className="mt-4 font-serif text-2xl text-ink">{step.title}</h3>
+                <h3 className="mt-6 font-serif text-2xl text-ink">{step.title}</h3>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-gold-deep">
                   {step.caption}
                 </p>

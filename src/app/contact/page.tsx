@@ -17,7 +17,7 @@ const topics = [
   {
     icon: BookOpen,
     title: "Books & writing",
-    text: "Questions about the forthcoming book, the stories behind it, or the writing process.",
+    text: "Questions about the book, the stories behind it, or the writing process.",
   },
   {
     icon: Mic2,
