@@ -9,10 +9,27 @@ async function token() {
   const key = process.env.LULU_CLIENT_KEY;
   const secret = process.env.LULU_CLIENT_SECRET;
   if (!tokenUrl || !key || !secret) throw new Error("Lulu is not configured.");
-  const response = await fetch(tokenUrl, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "client_credentials", client_key: key, client_secret: secret }), cache: "no-store" });
-  const body = await response.json();
-  if (!response.ok || !body.access_token) throw new Error("Lulu authentication failed.");
+  const basicCredentials = Buffer.from(`${key}:${secret}`, "utf8").toString("base64");
+  const response = await fetch(tokenUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basicCredentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ grant_type: "client_credentials" }),
+    cache: "no-store",
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.access_token) {
+    const detail = typeof body?.error_description === "string" ? body.error_description : typeof body?.error === "string" ? body.error : undefined;
+    throw new Error(`Lulu authentication failed (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+  }
   return body.access_token as string;
+}
+
+/** Verifies OAuth credentials without exposing the resulting access token. */
+export async function verifyLuluAuthentication() {
+  await token();
 }
 
 function luluAddress(input: QuoteInput) {
