@@ -27,11 +27,6 @@ async function token() {
   return body.access_token as string;
 }
 
-/** Verifies OAuth credentials without exposing the resulting access token. */
-export async function verifyLuluAuthentication() {
-  await token();
-}
-
 function luluAddress(input: QuoteInput) {
   return { name: `${input.firstName} ${input.lastName}`, email: input.email, phone_number: input.phone || undefined, street1: input.address1, street2: input.address2 || undefined, city: input.city, state_code: input.state, postcode: input.postalCode, country_code: input.country };
 }
