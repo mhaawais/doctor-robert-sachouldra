@@ -43,35 +43,9 @@ async function luluFetch(path: string, init: RequestInit) {
   return body;
 }
 
-function shippingOptionsPayload(input: QuoteInput) {
-  const config = directFormat(input.format);
-  return { pod_package_id: config.podPackageId, page_count: config.pageCount, quantity: input.quantity, country: input.country, currency: "USD" };
-}
-
-function sanitizeDiagnostic(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sanitizeDiagnostic);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, /token|secret|authorization|client.?key/i.test(key) ? "[redacted]" : sanitizeDiagnostic(item)]));
-  }
-  return value;
-}
-
 export async function shippingOptions(input: QuoteInput) {
-  return luluFetch("/shipping-options/", { method: "POST", body: JSON.stringify(shippingOptionsPayload(input)) });
-}
-
-/** Temporary sandbox diagnostic. It does not expose OAuth credentials or access tokens. */
-export async function diagnoseShippingOptions(input: QuoteInput) {
-  const payload = shippingOptionsPayload(input);
-  const endpoint = `${apiBase()}/shipping-options/`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    cache: "no-store",
-  });
-  const body = await response.json().catch(() => null);
-  return { endpoint, requestPayload: payload, status: response.status, responseBody: sanitizeDiagnostic(body) };
+  const config = directFormat(input.format);
+  return luluFetch("/shipping-options/", { method: "POST", body: JSON.stringify({ pod_package_id: config.podPackageId, page_count: config.pageCount, quantity: input.quantity, country: input.country, currency: "USD" }) });
 }
 
 export async function costCalculation(input: QuoteInput, shippingMethod: string) {
