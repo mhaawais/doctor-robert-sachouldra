@@ -36,16 +36,45 @@ function lineItem(format: DirectFormat, quantity: number) {
   return { external_id: `behind-the-mask-${format.toLowerCase()}`, pod_package_id: config.podPackageId, quantity, page_count: config.pageCount, interior: { source_url: config.interiorUrl }, cover: { source_url: config.coverUrl } };
 }
 
+function luluErrorDetail(body: unknown) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
+  const details = Object.entries(body).flatMap(([field, value]) => {
+    if (/token|secret|authorization|client.?key/i.test(field)) return [];
+    if (typeof value === "string") return [`${field}: ${value}`];
+    if (Array.isArray(value) && value.every((item) => typeof item === "string")) return [`${field}: ${value.join(", ")}`];
+    return [];
+  });
+  return details.length ? details.join("; ").slice(0, 1000) : undefined;
+}
+
 async function luluFetch(path: string, init: RequestInit) {
   const response = await fetch(`${apiBase()}${path}`, { ...init, headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json", ...(init.headers ?? {}) }, cache: "no-store" });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.detail ?? body.message ?? "Lulu request failed.");
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = typeof body?.detail === "string" ? body.detail : typeof body?.message === "string" ? body.message : luluErrorDetail(body);
+    throw new Error(`Lulu request failed (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+  }
   return body;
 }
 
 export async function shippingOptions(input: QuoteInput) {
   const config = directFormat(input.format);
-  return luluFetch("/shipping-options/", { method: "POST", body: JSON.stringify({ pod_package_id: config.podPackageId, page_count: config.pageCount, quantity: input.quantity, country: input.country, currency: "USD" }) });
+  return luluFetch("/shipping-options/", {
+    method: "POST",
+    body: JSON.stringify({
+      currency: "USD",
+      line_items: [{ pod_package_id: config.podPackageId, page_count: config.pageCount, quantity: input.quantity }],
+      shipping_address: {
+        name: `${input.firstName} ${input.lastName}`,
+        street1: input.address1,
+        street2: input.address2 || "",
+        city: input.city,
+        state: input.state,
+        postcode: input.postalCode,
+        country: input.country,
+      },
+    }),
+  });
 }
 
 export async function costCalculation(input: QuoteInput, shippingMethod: string) {
