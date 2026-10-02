@@ -4,7 +4,17 @@ import type { QuoteInput } from "./validation";
 
 const apiBase = () => process.env.LULU_API_ENVIRONMENT === "production" ? "https://api.lulu.com" : "https://api.sandbox.lulu.com";
 
-async function token() {
+export class LuluRequestError extends Error {
+  constructor(readonly diagnostic: { operation: string; status: number; detail?: string }) {
+    super(`Lulu request failed (HTTP ${diagnostic.status})${diagnostic.detail ? `: ${diagnostic.detail}` : ""}`);
+  }
+}
+
+type CachedToken = { value: string; expiresAt: number };
+let cachedToken: CachedToken | null = null;
+
+async function token(forceRefresh = false) {
+  if (!forceRefresh && cachedToken && cachedToken.expiresAt > Date.now()) return cachedToken.value;
   const tokenUrl = process.env.LULU_OAUTH_TOKEN_URL;
   const key = process.env.LULU_CLIENT_KEY;
   const secret = process.env.LULU_CLIENT_SECRET;
@@ -22,9 +32,11 @@ async function token() {
   const body = await response.json().catch(() => null);
   if (!response.ok || !body?.access_token) {
     const detail = typeof body?.error_description === "string" ? body.error_description : typeof body?.error === "string" ? body.error : undefined;
-    throw new Error(`Lulu authentication failed (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+    throw new LuluRequestError({ operation: "POST OAuth token", status: response.status, detail });
   }
-  return body.access_token as string;
+  const expiresInSeconds = typeof body.expires_in === "number" && body.expires_in > 0 ? body.expires_in : 60;
+  cachedToken = { value: body.access_token as string, expiresAt: Date.now() + Math.max(1, expiresInSeconds - 30) * 1000 };
+  return cachedToken.value;
 }
 
 function luluAddress(input: QuoteInput) {
@@ -47,12 +59,19 @@ function luluErrorDetail(body: unknown) {
   return details.length ? details.join("; ").slice(0, 1000) : undefined;
 }
 
+async function authorizedFetch(url: string, init: RequestInit) {
+  const send = async (forceRefresh = false) => fetch(url, { ...init, headers: { Authorization: `Bearer ${await token(forceRefresh)}`, ...(init.headers ?? {}) }, cache: "no-store" });
+  let response = await send();
+  if (response.status === 401) { cachedToken = null; response = await send(true); }
+  return response;
+}
+
 async function luluFetch(path: string, init: RequestInit) {
-  const response = await fetch(`${apiBase()}${path}`, { ...init, headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json", ...(init.headers ?? {}) }, cache: "no-store" });
+  const response = await authorizedFetch(`${apiBase()}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = typeof body?.detail === "string" ? body.detail : typeof body?.message === "string" ? body.message : luluErrorDetail(body);
-    throw new Error(`Lulu request failed (HTTP ${response.status})${detail ? `: ${detail}` : ""}`);
+    throw new LuluRequestError({ operation: `${init.method ?? "GET"} ${path}`, status: response.status, detail });
   }
   return body;
 }
@@ -96,7 +115,7 @@ export async function reconcilePrintJob(externalId: string): Promise<{ id: strin
   if (!template || !template.includes("{externalId}")) return "unknown";
   try {
     const url = template.replace("{externalId}", encodeURIComponent(externalId));
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${await token()}` }, cache: "no-store" });
+    const response = await authorizedFetch(url, {});
     if (response.status === 404) return null;
     const body = await response.json();
     if (!response.ok) return "unknown";
