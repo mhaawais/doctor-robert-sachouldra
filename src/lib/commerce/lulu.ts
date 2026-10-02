@@ -48,15 +48,21 @@ function lineItem(format: DirectFormat, quantity: number) {
   return { external_id: `behind-the-mask-${format.toLowerCase()}`, pod_package_id: config.podPackageId, quantity, page_count: config.pageCount, interior: { source_url: config.interiorUrl }, cover: { source_url: config.coverUrl } };
 }
 
+const sensitiveLuluField = /token|secret|authorization|client.?key|source.?url|pdf|email|phone|address|name/i;
+
+function safeLuluErrorValue(value: unknown, depth = 0): unknown {
+  if (depth > 4) return "[truncated]";
+  if (typeof value === "string") return value.replace(/https?:\/\/\S+/gi, "[redacted-url]").slice(0, 500);
+  if (Array.isArray(value)) return value.slice(0, 20).map((item) => safeLuluErrorValue(item, depth + 1));
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([field, item]) => [field, sensitiveLuluField.test(field) ? "[redacted]" : safeLuluErrorValue(item, depth + 1)]));
+}
+
 function luluErrorDetail(body: unknown) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
-  const details = Object.entries(body).flatMap(([field, value]) => {
-    if (/token|secret|authorization|client.?key/i.test(field)) return [];
-    if (typeof value === "string") return [`${field}: ${value}`];
-    if (Array.isArray(value) && value.every((item) => typeof item === "string")) return [`${field}: ${value.join(", ")}`];
-    return [];
-  });
-  return details.length ? details.join("; ").slice(0, 1000) : undefined;
+  const safeBody = safeLuluErrorValue(body);
+  if (safeBody === null || safeBody === undefined) return undefined;
+  const detail = typeof safeBody === "string" ? safeBody : JSON.stringify(safeBody);
+  return detail && detail !== "{}" ? detail.slice(0, 1000) : undefined;
 }
 
 async function authorizedFetch(url: string, init: RequestInit) {
@@ -70,7 +76,7 @@ async function luluFetch(path: string, init: RequestInit) {
   const response = await authorizedFetch(`${apiBase()}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(init.headers ?? {}) } });
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = typeof body?.detail === "string" ? body.detail : typeof body?.message === "string" ? body.message : luluErrorDetail(body);
+    const detail = typeof body?.detail === "string" ? safeLuluErrorValue(body.detail) as string : typeof body?.message === "string" ? safeLuluErrorValue(body.message) as string : luluErrorDetail(body);
     throw new LuluRequestError({ operation: `${init.method ?? "GET"} ${path}`, status: response.status, detail });
   }
   return body;
