@@ -48,7 +48,8 @@ export async function POST(request: Request) {
     try {
       const printJob = await createPrintJob({ ...input, orderNumber: number });
       const luluPrintJobId = printJob.id ?? printJob.print_job?.id;
-      await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: luluPrintJobId == null ? null : String(luluPrintJobId), luluStatus: printJob.status ?? "SUBMITTED" } });
+      const luluStatus = typeof printJob.status === "string" ? printJob.status : printJob.status?.name ?? "SUBMITTED";
+      await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: luluPrintJobId == null ? null : String(luluPrintJobId), luluStatus } });
     } catch (error) {
       const diagnostic = error instanceof LuluRequestError ? error.diagnostic : { operation: "POST /print-jobs/", status: 0, detail: "Unexpected provider failure" };
       console.error("Lulu fulfillment submission failed.", { orderNumber: number, operation: diagnostic.operation, status: diagnostic.status, detail: diagnostic.detail, podPackageId: format.podPackageId, pageCount: format.pageCount, pdfSources: { interiorConfigured: Boolean(format.interiorUrl), coverConfigured: Boolean(format.coverUrl), providerValidation: diagnostic.detail && /(interior|cover|pdf|source_url)/i.test(diagnostic.detail) ? "reported by Lulu" : "not reported by Lulu" } });
