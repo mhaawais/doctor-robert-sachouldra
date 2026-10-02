@@ -1,5 +1,6 @@
 import "server-only";
-import { directFormat, type DirectFormat } from "./config";
+import { BOOK_SLUG, directFormat, type DirectFormat } from "./config";
+import { books } from "@/data/books";
 import type { QuoteInput } from "./validation";
 
 const apiBase = () => process.env.LULU_API_ENVIRONMENT === "production" ? "https://api.lulu.com" : "https://api.sandbox.lulu.com";
@@ -45,7 +46,9 @@ function luluAddress(input: QuoteInput) {
 
 function lineItem(format: DirectFormat, quantity: number) {
   const config = directFormat(format);
-  return { external_id: `behind-the-mask-${format.toLowerCase()}`, pod_package_id: config.podPackageId, quantity, page_count: config.pageCount, interior: { source_url: config.interiorUrl }, cover: { source_url: config.coverUrl } };
+  const title = books.find((book) => book.slug === BOOK_SLUG)?.title;
+  if (!title) throw new Error("Book title is not configured.");
+  return { external_id: `behind-the-mask-${format.toLowerCase()}`, title, pod_package_id: config.podPackageId, quantity, page_count: config.pageCount, interior: { source_url: config.interiorUrl }, cover: { source_url: config.coverUrl } };
 }
 
 const sensitiveLuluField = /token|secret|authorization|client.?key|source.?url|pdf|email|phone|address|name/i;
