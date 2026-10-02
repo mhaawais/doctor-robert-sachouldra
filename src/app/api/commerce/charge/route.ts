@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { chargeSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, directFormat } from "@/lib/commerce/config";
-import { costCalculation, createPrintJob } from "@/lib/commerce/lulu";
+import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerce/lulu";
 import { createSquarePayment } from "@/lib/commerce/square";
 import { sendOrderConfirmation } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
@@ -48,7 +48,9 @@ export async function POST(request: Request) {
     try {
       const printJob = await createPrintJob({ ...input, orderNumber: number });
       await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: printJob.id ?? printJob.print_job?.id, luluStatus: printJob.status ?? "SUBMITTED" } });
-    } catch {
+    } catch (error) {
+      const diagnostic = error instanceof LuluRequestError ? error.diagnostic : { operation: "POST /print-jobs/", status: 0, detail: "Unexpected provider failure" };
+      console.error("Lulu fulfillment submission failed.", { orderNumber: number, operation: diagnostic.operation, status: diagnostic.status, detail: diagnostic.detail, podPackageId: format.podPackageId, pageCount: format.pageCount, pdfSources: { interiorConfigured: Boolean(format.interiorUrl), coverConfigured: Boolean(format.coverUrl), providerValidation: diagnostic.detail && /(interior|cover|pdf|source_url)/i.test(diagnostic.detail) ? "reported by Lulu" : "not reported by Lulu" } });
       await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_FAILED" } });
     }
     const statusUrl = orderAccessUrl(number, accessToken);
