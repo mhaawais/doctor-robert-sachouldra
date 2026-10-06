@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { safeTrackingUrl } from "@/lib/commerce/security";
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const signatureBuffer = signature ? Buffer.from(signature) : null;
   if (!signatureBuffer || !expected || expectedBuffer.length !== signatureBuffer.length || !timingSafeEqual(expectedBuffer, signatureBuffer)) return new NextResponse("Invalid signature", { status: 401 });
   const event = JSON.parse(raw) as { id?: string; topic?: string; data?: { id?: string | number; status?: { name?: string } | string; tracking_number?: string; tracking_url?: string } };
-  const externalId = event.id ?? `${event.topic}:${event.data?.id}`;
+  const externalId = event.id ?? createHash("sha256").update(raw).digest("hex");
   try { await db.webhookEvent.create({ data: { provider: "lulu", externalId, payload: event } }); } catch { return NextResponse.json({ ok: true, replay: true }); }
   const data = event.data;
   if (data?.id) {
