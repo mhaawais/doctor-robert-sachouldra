@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "crypto";
+import type { FulfillmentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { safeTrackingUrl } from "@/lib/commerce/security";
@@ -18,7 +19,17 @@ export async function POST(request: Request) {
   if (data?.id) {
     const printJobId = String(data.id);
     const status = typeof data.status === "string" ? data.status : data.status?.name;
-    const fulfillmentStatus = status?.toLowerCase().includes("ship") ? "SHIPPED" : status?.toLowerCase().includes("cancel") ? "CANCELLED" : status?.toLowerCase().includes("fail") ? "FULFILLMENT_FAILED" : "IN_PRODUCTION";
+    const fulfillmentStatusByLuluStatus: Record<string, FulfillmentStatus> = {
+      UNPAID: "FULFILLMENT_SUBMITTED",
+      CREATED: "FULFILLMENT_SUBMITTED",
+      IN_PRODUCTION: "IN_PRODUCTION",
+      PRODUCTION_DELAYED: "IN_PRODUCTION",
+      SHIPPED: "SHIPPED",
+      CANCELLED: "CANCELLED",
+      REJECTED: "FULFILLMENT_FAILED",
+      FAILED: "FULFILLMENT_FAILED",
+    };
+    const fulfillmentStatus = fulfillmentStatusByLuluStatus[status?.toUpperCase() ?? ""] ?? "IN_PRODUCTION";
     await db.order.updateMany({ where: { luluPrintJobId: printJobId }, data: { luluStatus: status, fulfillmentStatus, trackingNumber: data.tracking_number, trackingUrl: safeTrackingUrl(data.tracking_url) } });
   }
   return NextResponse.json({ ok: true });
