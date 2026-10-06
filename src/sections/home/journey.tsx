@@ -35,9 +35,9 @@ export async function Journey() {
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-gold-deep">
                   {step.caption}
                 </p>
-                <p className="mt-4 text-[15px] leading-relaxed text-slate-body">
-                  {step.narrative}
-                </p>
+                <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-slate-body">
+                  {step.narrative.split("\n\n").map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                </div>
               </div>
             </RevealItem>
           ))}

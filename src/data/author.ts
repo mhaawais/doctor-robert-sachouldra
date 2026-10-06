@@ -81,7 +81,7 @@ export const journey: JourneyStep[] = [
     title: "Purpose",
     caption: "The road ahead",
     narrative:
-      "Today his commitment runs from the ward to the world: hospital medicine in Georgia, medical missions in Zambia, entrepreneurship — including ownership of Mufulira United Football Club — and a lifelong effort to build healthier futures in the United States, Zambia, and beyond.",
+      "I wrote Behind the Mask because I couldn't carry what I saw in silence. During the pandemic, I was a physician at the bedside, trained in family medicine, hospital medicine, and critical care, holding the hands of frightened patients and answering questions from families when I didn't have easy answers. I went home exhausted, haunted by faces and conversations I couldn't set down. This book is how I finally started to set them down.\n\nSince then, I've gone back to school for my master's in biotechnology, and I've spent time in the world of vaccine production, where I saw how much careful, quiet work goes into protecting people. That's when I realized how wide the gap was between what I lived through in hospitals and what many people understood about the science. I wrote this book to close that gap, to share what it felt like on the frontline and to explain, in plain language, how vaccines are built and tested. If my story helps even one reader trade fear for understanding, then writing it was worth it.",
   },
 ];
 

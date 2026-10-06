@@ -272,9 +272,9 @@ export default async function AboutPage() {
                     <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-gold-deep">
                       {step.caption}
                     </p>
-                    <p className="mt-2.5 text-[15px] leading-relaxed text-slate-body">
-                      {step.narrative}
-                    </p>
+                    <div className="mt-2.5 space-y-4 text-[15px] leading-relaxed text-slate-body">
+                      {step.narrative.split("\n\n").map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                    </div>
                   </div>
                 </div>
               </RevealItem>
