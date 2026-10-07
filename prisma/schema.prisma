@@ -82,6 +82,7 @@ model Order {
   trackingUrl       String?
   paymentKey        String            @unique
   customerAccessTokenHash String
+  ebookDownloadConsumedAt DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   paymentAttempts   PaymentAttempt[]
