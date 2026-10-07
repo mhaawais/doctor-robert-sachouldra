@@ -11,6 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orde
   const sessionToken = newSecret();
   await db.$transaction([db.orderAccessSession.create({ data: { orderId: order.id, tokenHash: hashSecret(sessionToken), expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } }), db.orderAccessSession.deleteMany({ where: { orderId: order.id, expiresAt: { lt: new Date() } } })]);
   const response = NextResponse.redirect(new URL(`/order/${orderNumber}`, request.url));
-  response.cookies.set(orderCookieName(orderNumber), sessionToken, { httpOnly: true, secure: true, sameSite: "lax", path: `/order/${orderNumber}`, maxAge: 30 * 24 * 60 * 60 });
+  response.cookies.set(orderCookieName(orderNumber), "", { httpOnly: true, secure: true, sameSite: "lax", path: `/order/${orderNumber}`, maxAge: 0 });
+  response.cookies.set(orderCookieName(orderNumber), sessionToken, { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 30 * 24 * 60 * 60 });
   return response;
 }
