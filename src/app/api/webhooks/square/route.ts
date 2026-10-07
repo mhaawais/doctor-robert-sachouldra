@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   try { await db.webhookEvent.create({ data: { provider: "square", externalId: event.event_id, payload: event } }); } catch { return NextResponse.json({ ok: true, replay: true }); }
   if (!["payment.created", "payment.updated", "refund.created", "refund.updated"].includes(event.type)) return NextResponse.json({ ok: true, ignored: true });
   const payment = event.data?.object?.payment;
-  if (payment?.id) await db.order.updateMany({ where: { squarePaymentId: payment.id }, data: { paymentStatus: payment.status === "COMPLETED" ? "PAID" : payment.status === "REFUNDED" ? "REFUNDED" : "FAILED" } });
+  if (payment?.id && payment.status === "COMPLETED") await db.order.updateMany({ where: { squarePaymentId: payment.id, paymentStatus: { not: "REFUNDED" } }, data: { paymentStatus: "PAID" } });
+  if (payment?.id && ["FAILED", "CANCELED"].includes(payment.status)) await db.order.updateMany({ where: { squarePaymentId: payment.id, paymentStatus: { notIn: ["PAID", "REFUNDED"] } }, data: { paymentStatus: "FAILED" } });
   const refund = event.data?.object?.refund;
   if (refund?.payment_id && ["COMPLETED", "PENDING"].includes(refund.status)) await db.order.updateMany({ where: { squarePaymentId: refund.payment_id }, data: { paymentStatus: refund.status === "COMPLETED" ? "REFUNDED" : "PAID" } });
   return NextResponse.json({ ok: true });
