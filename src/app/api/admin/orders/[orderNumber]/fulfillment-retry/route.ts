@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ ord
   if (!authorized(request)) return new NextResponse("Unauthorized", { status: 401 });
   const order = await db.order.findUnique({ where: { orderNumber: (await params).orderNumber } });
   if (!order) return new NextResponse("Not found", { status: 404 });
-  if (order.paymentStatus !== "PAID" || order.fulfillmentStatus !== "FULFILLMENT_FAILED" || order.luluPrintJobId) return NextResponse.json({ ok: false, error: "This order is not eligible for a safe fulfillment retry." }, { status: 409 });
+  if (order.paymentStatus !== "PAID" || order.fulfillmentStatus !== "FULFILLMENT_FAILED" || order.luluPrintJobId || order.format === "EBOOK" || !order.addressLine1 || !order.city || !order.stateProvince || !order.postalCode || !order.country) return NextResponse.json({ ok: false, error: "This order is not eligible for a safe fulfillment retry." }, { status: 409 });
   try {
     const reconciled = await reconcilePrintJob(order.orderNumber);
     if (reconciled === "unknown") { await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "MANUAL_REVIEW" } }); return NextResponse.json({ ok: false, error: "Lulu outcome could not be confirmed; the order requires manual review." }, { status: 409 }); }

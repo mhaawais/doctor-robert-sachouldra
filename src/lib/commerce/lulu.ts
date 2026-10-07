@@ -1,7 +1,7 @@
 import "server-only";
 import { BOOK_SLUG, directFormat, type DirectFormat } from "./config";
 import { books } from "@/data/books";
-import type { QuoteInput } from "./validation";
+import type { PhysicalQuoteInput } from "./validation";
 
 const apiBase = () => process.env.LULU_API_ENVIRONMENT === "production" ? "https://api.lulu.com" : "https://api.sandbox.lulu.com";
 
@@ -40,7 +40,7 @@ async function token(forceRefresh = false) {
   return cachedToken.value;
 }
 
-function luluAddress(input: QuoteInput) {
+function luluAddress(input: PhysicalQuoteInput) {
   return { name: `${input.firstName} ${input.lastName}`, email: input.email, phone_number: input.phone || undefined, street1: input.address1, street2: input.address2 || undefined, city: input.city, state_code: input.state, postcode: input.postalCode, country_code: input.country };
 }
 
@@ -85,7 +85,7 @@ async function luluFetch(path: string, init: RequestInit) {
   return body;
 }
 
-export async function shippingOptions(input: QuoteInput) {
+export async function shippingOptions(input: PhysicalQuoteInput) {
   const config = directFormat(input.format);
   return luluFetch("/shipping-options/", {
     method: "POST",
@@ -105,11 +105,11 @@ export async function shippingOptions(input: QuoteInput) {
   });
 }
 
-export async function costCalculation(input: QuoteInput, shippingMethod: string) {
+export async function costCalculation(input: PhysicalQuoteInput, shippingMethod: string) {
   return luluFetch("/print-job-cost-calculations/", { method: "POST", body: JSON.stringify({ line_items: [lineItem(input.format, input.quantity)], shipping_address: luluAddress(input), shipping_option: shippingMethod }) });
 }
 
-export async function createPrintJob(input: QuoteInput & { orderNumber: string; shippingMethod: string }) {
+export async function createPrintJob(input: PhysicalQuoteInput & { orderNumber: string; shippingMethod: string }) {
   return luluFetch("/print-jobs/", { method: "POST", body: JSON.stringify({ external_id: input.orderNumber, contact_email: input.email, shipping_level: input.shippingMethod, line_items: [lineItem(input.format, input.quantity)], shipping_address: luluAddress(input) }) });
 }
 

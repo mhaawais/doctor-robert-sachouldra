@@ -50,6 +50,7 @@ enum FulfillmentStatus {
 enum BookFormat {
   PAPERBACK
   HARDCOVER
+  EBOOK
 }
 
 model Order {
@@ -65,12 +66,12 @@ model Order {
   totalAmount       Int
   currency          String            @default("USD")
   shippingMethod    String
-  addressLine1      String
+  addressLine1      String?
   addressLine2      String?
-  city              String
-  stateProvince     String
-  postalCode        String
-  country           String
+  city              String?
+  stateProvince     String?
+  postalCode        String?
+  country           String?
   paymentStatus     PaymentStatus     @default(PENDING_PAYMENT)
   fulfillmentStatus FulfillmentStatus @default(NOT_SUBMITTED)
   squarePaymentId   String?           @unique
