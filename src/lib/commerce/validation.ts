@@ -24,7 +24,7 @@ const physicalQuoteSchema = addressSchema.extend({
 const ebookQuoteSchema = customerSchema.extend({
   format: z.literal("EBOOK"),
   quantity: z.literal(1),
-});
+}).strict();
 
 export const quoteSchema = z.discriminatedUnion("format", [physicalQuoteSchema, ebookQuoteSchema]);
 
@@ -36,8 +36,8 @@ const paymentSchema = z.object({
 });
 
 export const chargeSchema = z.discriminatedUnion("format", [
-  physicalQuoteSchema.extend({ shippingMethod: z.string().trim().min(1).max(50) }).merge(paymentSchema),
-  ebookQuoteSchema.extend({ shippingMethod: z.literal("DIGITAL_DELIVERY") }).merge(paymentSchema),
+  physicalQuoteSchema.extend({ shippingMethod: z.string().trim().min(1).max(50), reviewedQuote: z.string().trim().min(1).max(4_000) }).merge(paymentSchema),
+  ebookQuoteSchema.extend({ shippingMethod: z.literal("DIGITAL_DELIVERY") }).merge(paymentSchema).strict(),
 ]);
 
 export type QuoteInput = z.infer<typeof quoteSchema>;

@@ -7,7 +7,7 @@ import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerc
 import { createSquarePayment } from "@/lib/commerce/square";
 import { sendOrderConfirmation } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
-import { hashSecret, matchesSecret, newSecret, orderAccessUrl } from "@/lib/commerce/security";
+import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret, orderAccessUrl } from "@/lib/commerce/security";
 
 const orderNumber = () => `RS-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
@@ -23,6 +23,9 @@ export async function POST(request: Request) {
     const format = productFormat(input.format);
     const shippingAmount = input.format === "EBOOK" ? 0 : Math.round(Number((await costCalculation(input, input.shippingMethod)).shipping_cost?.total_cost_incl_tax ?? 0) * 100);
     const totalAmount = format.priceCents * input.quantity + shippingAmount;
+    if (input.format !== "EBOOK" && !matchesReviewedQuote(input.reviewedQuote, input, input.shippingMethod, shippingAmount, totalAmount)) {
+      return NextResponse.json({ ok: false, quoteChanged: true, error: "Shipping price or total changed. Please review the updated total.", shippingAmount, totalAmount, reviewedQuote: createReviewedQuote(input, input.shippingMethod, shippingAmount, totalAmount) }, { status: 409 });
+    }
     const number = input.retryOrderNumber ?? orderNumber();
     const accessToken = input.orderAccessToken ?? newSecret();
     let order;
@@ -60,7 +63,7 @@ export async function POST(request: Request) {
     const statusUrl = orderAccessUrl(number, accessToken);
     void sendOrderConfirmation({ email: input.email, customerName: `${input.firstName} ${input.lastName}`, orderNumber: number, format: input.format, quantity: input.quantity, totalAmount, shippingMethod: input.shippingMethod, statusUrl });
     return NextResponse.json({ ok: true, orderNumber: number, orderAccessToken: accessToken });
-  } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "We could not complete your order." }, { status: 400 });
+  } catch {
+    return NextResponse.json({ ok: false, error: input.format === "EBOOK" ? "We couldn't complete your order." : "We couldn't confirm shipping for this order. Please review your details and try again." }, { status: 400 });
   }
 }
