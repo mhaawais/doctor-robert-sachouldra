@@ -5,8 +5,10 @@ import { hashSecret, matchesSecret } from "./security";
 export async function getAuthorizedOrder(orderNumber: string, token: string | undefined) {
   if (!token || token.length < 40) return null;
   const order = await db.order.findUnique({ where: { orderNumber } });
-  if (!order || !matchesSecret(token, order.customerAccessTokenHash)) return null;
-  return order;
+  if (order && matchesSecret(token, order.customerAccessTokenHash)) return order;
+  const session = await db.orderAccessSession.findUnique({ where: { tokenHash: hashSecret(token) }, include: { order: true } });
+  if (!session || session.expiresAt <= new Date() || session.order.orderNumber !== orderNumber || !matchesSecret(token, session.tokenHash)) return null;
+  return session.order;
 }
 
 export const orderCookieName = (orderNumber: string) => `order_access_${orderNumber}`;

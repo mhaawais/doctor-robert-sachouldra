@@ -5,9 +5,9 @@ import { chargeSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, directFormat, productFormat } from "@/lib/commerce/config";
 import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerce/lulu";
 import { createSquarePayment } from "@/lib/commerce/square";
-import { sendOrderConfirmation } from "@/lib/commerce/email";
+import { enqueueFulfillmentAttentionEmail, enqueuePaidOrderEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
-import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret, orderAccessUrl } from "@/lib/commerce/security";
+import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret } from "@/lib/commerce/security";
 
 const orderNumber = () => `RS-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
@@ -42,7 +42,11 @@ export async function POST(request: Request) {
       attemptId = attempt.id;
       payment = await createSquarePayment({ sourceId: input.paymentToken, amountCents: totalAmount, idempotencyKey: attempt.squareIdempotencyKey, orderNumber: number, email: input.email });
       if (payment.status !== "COMPLETED") throw new Error("Square did not complete the payment.");
-      await db.$transaction([db.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID", squarePaymentId: payment.id, squareOrderId: payment.order_id } }), db.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "SUCCEEDED", squarePaymentId: payment.id } })]);
+      await db.$transaction(async (tx) => {
+        const paidOrder = await tx.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID", squarePaymentId: payment.id, squareOrderId: payment.order_id } });
+        await tx.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "SUCCEEDED", squarePaymentId: payment.id } });
+        await enqueuePaidOrderEmail(tx, paidOrder);
+      });
     } catch (error) {
       await db.$transaction([db.order.update({ where: { id: order.id }, data: { paymentStatus: "FAILED" } }), ...(attemptId ? [db.paymentAttempt.update({ where: { id: attemptId }, data: { status: "FAILED", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Payment provider error" } })] : [])]);
       return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Square could not process the payment.", retryOrderNumber: order.orderNumber, orderAccessToken: accessToken }, { status: 402 });
@@ -57,11 +61,12 @@ export async function POST(request: Request) {
       } catch (error) {
         const diagnostic = error instanceof LuluRequestError ? error.diagnostic : { operation: "POST /print-jobs/", status: 0, detail: "Unexpected provider failure" };
         console.error("Lulu fulfillment submission failed.", { orderNumber: number, operation: diagnostic.operation, status: diagnostic.status, detail: diagnostic.detail, podPackageId: printFormat.podPackageId, pageCount: printFormat.pageCount, pdfSources: { interiorConfigured: Boolean(printFormat.interiorUrl), coverConfigured: Boolean(printFormat.coverUrl), providerValidation: diagnostic.detail && /(interior|cover|pdf|source_url)/i.test(diagnostic.detail) ? "reported by Lulu" : "not reported by Lulu" } });
-        await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_FAILED" } });
+        await db.$transaction(async (tx) => {
+          const failedOrder = await tx.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_FAILED" } });
+          await enqueueFulfillmentAttentionEmail(tx, failedOrder);
+        });
       }
     }
-    const statusUrl = orderAccessUrl(number, accessToken);
-    void sendOrderConfirmation({ email: input.email, customerName: `${input.firstName} ${input.lastName}`, orderNumber: number, format: input.format, quantity: input.quantity, totalAmount, shippingMethod: input.shippingMethod, statusUrl });
     return NextResponse.json({ ok: true, orderNumber: number, orderAccessToken: accessToken });
   } catch {
     return NextResponse.json({ ok: false, error: input.format === "EBOOK" ? "We couldn't complete your order." : "We couldn't confirm shipping for this order. Please review your details and try again." }, { status: 400 });

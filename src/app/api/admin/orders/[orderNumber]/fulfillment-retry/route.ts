@@ -4,6 +4,7 @@ import { createPrintJob } from "@/lib/commerce/lulu";
 import { reconcilePrintJob } from "@/lib/commerce/lulu";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
 import { constantTimeEquals } from "@/lib/commerce/security";
+import { enqueueFulfillmentAttentionEmail } from "@/lib/commerce/email";
 
 function authorized(request: Request) { const expected = process.env.ADMIN_ORDER_RECOVERY_TOKEN; if (!expected) return false; const provided = request.headers.get("authorization")?.replace(/^Bearer /, "") ?? ""; return constantTimeEquals(provided, expected); }
 
@@ -15,7 +16,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ ord
   if (order.paymentStatus !== "PAID" || order.fulfillmentStatus !== "FULFILLMENT_FAILED" || order.luluPrintJobId || order.format === "EBOOK" || !order.addressLine1 || !order.city || !order.stateProvince || !order.postalCode || !order.country) return NextResponse.json({ ok: false, error: "This order is not eligible for a safe fulfillment retry." }, { status: 409 });
   try {
     const reconciled = await reconcilePrintJob(order.orderNumber);
-    if (reconciled === "unknown") { await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "MANUAL_REVIEW" } }); return NextResponse.json({ ok: false, error: "Lulu outcome could not be confirmed; the order requires manual review." }, { status: 409 }); }
+    if (reconciled === "unknown") {
+      await db.$transaction(async (tx) => {
+        const reviewOrder = await tx.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "MANUAL_REVIEW" } });
+        await enqueueFulfillmentAttentionEmail(tx, reviewOrder);
+      });
+      return NextResponse.json({ ok: false, error: "Lulu outcome could not be confirmed; the order requires manual review." }, { status: 409 });
+    }
     if (reconciled) { await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: reconciled.id, luluStatus: reconciled.status ?? "SUBMITTED" } }); return NextResponse.json({ ok: true, reconciled: true }); }
     const printJob = await createPrintJob({ firstName: order.customerName.split(" ")[0] ?? order.customerName, lastName: order.customerName.split(" ").slice(1).join(" "), email: order.email, phone: order.phone ?? "", address1: order.addressLine1, address2: order.addressLine2 ?? "", city: order.city, state: order.stateProvince, postalCode: order.postalCode, country: order.country, format: order.format, quantity: order.quantity, shippingMethod: order.shippingMethod, orderNumber: order.orderNumber });
     await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: printJob.id ?? printJob.print_job?.id, luluStatus: printJob.status ?? "SUBMITTED" } });

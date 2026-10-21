@@ -53,6 +53,19 @@ enum BookFormat {
   EBOOK
 }
 
+enum TransactionalEmailStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+enum TransactionalEmailEventType {
+  ORDER_PAID
+  ORDER_SHIPPED
+  ADMIN_FULFILLMENT_ATTENTION
+}
+
 model Order {
   id                String            @id @default(cuid())
   orderNumber       String            @unique
@@ -87,6 +100,29 @@ model Order {
   updatedAt         DateTime          @updatedAt
   paymentAttempts   PaymentAttempt[]
   accessSessions    OrderAccessSession[]
+  transactionalEmails TransactionalEmail[]
+}
+
+model TransactionalEmail {
+  id                String                      @id @default(cuid())
+  eventKey          String                      @unique
+  eventType         TransactionalEmailEventType
+  status            TransactionalEmailStatus    @default(PENDING)
+  recipient         String
+  payload           Json
+  attempts          Int                         @default(0)
+  nextAttemptAt     DateTime                    @default(now())
+  lockedAt          DateTime?
+  providerMessageId String?
+  lastError         String?
+  sentAt            DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  orderId           String
+  order             Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([orderId, eventType])
 }
 
 model OrderAccessSession {
