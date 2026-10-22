@@ -22,6 +22,21 @@ export async function enqueuePaidOrderEmail(client: DbClient, order: Order) {
   return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "ORDER_PAID", recipient: order.email, payload: payloadForOrder(order), orderId: order.id } });
 }
 
+export async function enqueueOrderReceivedEmail(client: DbClient, order: Order) {
+  const eventKey = `order:${order.id}:received`;
+  return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "ORDER_RECEIVED", recipient: order.email, payload: payloadForOrder(order), orderId: order.id } });
+}
+
+export async function enqueuePaymentFailedEmail(client: DbClient, order: Order, paymentAttemptId: string) {
+  const eventKey = `order:${order.id}:payment-failed:${paymentAttemptId}`;
+  return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "PAYMENT_FAILED", recipient: order.email, payload: payloadForOrder(order), orderId: order.id } });
+}
+
+export async function enqueueFulfillmentSubmittedEmail(client: DbClient, order: Order) {
+  const eventKey = `order:${order.id}:lulu-fulfillment-submitted`;
+  return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "LULU_FULFILLMENT_SUBMITTED", recipient: order.email, payload: payloadForOrder(order), orderId: order.id } });
+}
+
 export async function enqueueShippedOrderEmail(client: DbClient, order: Order) {
   const eventKey = `order:${order.id}:shipped`;
   return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "ORDER_SHIPPED", recipient: order.email, payload: payloadForOrder(order), orderId: order.id } });
@@ -53,10 +68,19 @@ function renderEmail(event: TransactionalEmail, order: Order, statusUrl: string 
   const quantity = payload.quantity ?? order.quantity;
   const total = ((payload.totalAmount ?? order.totalAmount) / 100).toFixed(2);
   const trackingUrl = safeTrackingUrl(payload.trackingUrl ?? undefined);
+  if (event.eventType === "ORDER_RECEIVED") {
+    return { subject: `We received your order · ${order.orderNumber}`, text: `Hello ${name},\n\nWe received your order request for Behind the Mask (${format}, quantity ${quantity}). Your payment is still being processed. We will send a separate confirmation as soon as payment is confirmed.\n\nSecure order page: ${statusUrl ?? "Available from your order confirmation page."}\n\nDr. Robert Books`, html: `<p>Hello ${escapeHtml(name)},</p><p>We received your order request for <strong>Behind the Mask</strong> (${escapeHtml(format)}, quantity ${quantity}).</p><p>Your payment is still being processed. We will send a separate confirmation as soon as payment is confirmed.</p>${statusUrl ? `<p><a href="${escapeHtml(statusUrl)}">Open your secure order page</a></p>` : ""}<p>Dr. Robert Books</p>` };
+  }
   if (event.eventType === "ORDER_PAID") {
     const digital = format === "EBOOK";
     const action = digital ? "Your eBook is ready. Open your secure order page, then select Download eBook." : "Use your secure order page for the latest fulfillment and tracking updates.";
     return { subject: `Order confirmation · ${order.orderNumber}`, text: `Hello ${name},\n\nThank you for your order of Behind the Mask (${format}, quantity ${quantity}). Total paid: $${total} USD.\n\n${action}\n\nSecure order page: ${statusUrl ?? "Available from your order confirmation page."}\n\nDr. Robert Books`, html: `<p>Hello ${escapeHtml(name)},</p><p>Thank you for your order of <strong>Behind the Mask</strong> (${escapeHtml(format)}, quantity ${quantity}).</p><p><strong>Total paid:</strong> $${total} USD</p><p>${escapeHtml(action)}</p>${statusUrl ? `<p><a href="${escapeHtml(statusUrl)}">Open your secure order page</a></p>` : ""}<p>Dr. Robert Books</p>` };
+  }
+  if (event.eventType === "PAYMENT_FAILED") {
+    return { subject: `Payment needs attention · ${order.orderNumber}`, text: `Hello ${name},\n\nWe could not confirm payment for your order of Behind the Mask. No payment confirmation was recorded.\n\nPlease return to checkout and try again, or review your secure order page for the latest status.\n\nSecure order page: ${statusUrl ?? "Available from your order confirmation page."}\n\nDr. Robert Books`, html: `<p>Hello ${escapeHtml(name)},</p><p>We could not confirm payment for your order of <strong>Behind the Mask</strong>. No payment confirmation was recorded.</p><p>Please return to checkout and try again, or review your secure order page for the latest status.</p>${statusUrl ? `<p><a href="${escapeHtml(statusUrl)}">Open your secure order page</a></p>` : ""}<p>Dr. Robert Books</p>` };
+  }
+  if (event.eventType === "LULU_FULFILLMENT_SUBMITTED") {
+    return { subject: `Your book has entered fulfillment · ${order.orderNumber}`, text: `Hello ${name},\n\nYour paid order of Behind the Mask (${format}, quantity ${quantity}) has been accepted for fulfillment and is entering production. We will email you again when it ships.\n\nSecure order page: ${statusUrl ?? "Available from your order confirmation page."}\n\nDr. Robert Books`, html: `<p>Hello ${escapeHtml(name)},</p><p>Your paid order of <strong>Behind the Mask</strong> (${escapeHtml(format)}, quantity ${quantity}) has been accepted for fulfillment and is entering production.</p><p>We will email you again when it ships.</p>${statusUrl ? `<p><a href="${escapeHtml(statusUrl)}">Open your secure order page</a></p>` : ""}<p>Dr. Robert Books</p>` };
   }
   if (event.eventType === "ORDER_SHIPPED") {
     const tracking = trackingUrl ? `Track shipment: ${trackingUrl}` : payload.trackingNumber ? `Tracking number: ${payload.trackingNumber}` : "Tracking details will appear on your secure order page.";

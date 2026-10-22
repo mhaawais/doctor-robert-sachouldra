@@ -5,7 +5,7 @@ import { chargeSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, directFormat, productFormat } from "@/lib/commerce/config";
 import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerce/lulu";
 import { createSquarePayment } from "@/lib/commerce/square";
-import { enqueueFulfillmentAttentionEmail, enqueuePaidOrderEmail } from "@/lib/commerce/email";
+import { enqueueFulfillmentAttentionEmail, enqueueOrderReceivedEmail, enqueuePaidOrderEmail, enqueuePaymentFailedEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
 import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret } from "@/lib/commerce/security";
 
@@ -33,22 +33,30 @@ export async function POST(request: Request) {
       const previous = await db.order.findUnique({ where: { orderNumber: input.retryOrderNumber } });
       if (!previous || !input.orderAccessToken || !matchesSecret(input.orderAccessToken, previous.customerAccessTokenHash) || previous.paymentStatus !== "FAILED") throw new Error("This payment retry is not available.");
       order = await db.order.update({ where: { id: previous.id }, data: { paymentKey: input.idempotencyKey, paymentStatus: "PENDING_PAYMENT", unitPrice: format.priceCents, shippingAmount, totalAmount, shippingMethod: input.shippingMethod } });
-    } else try { order = await db.order.create({ data: { orderNumber: number, paymentKey: input.idempotencyKey, customerAccessTokenHash: hashSecret(accessToken), email: input.email, customerName: `${input.firstName} ${input.lastName}`, phone: input.phone || null, format: input.format, quantity: input.quantity, unitPrice: format.priceCents, shippingAmount, totalAmount, shippingMethod: input.shippingMethod, addressLine1: input.format === "EBOOK" ? null : input.address1, addressLine2: input.format === "EBOOK" ? null : input.address2 || null, city: input.format === "EBOOK" ? null : input.city, stateProvince: input.format === "EBOOK" ? null : input.state, postalCode: input.format === "EBOOK" ? null : input.postalCode, country: input.format === "EBOOK" ? null : input.country } }); }
+    } else try { order = await db.$transaction(async (tx) => { const created = await tx.order.create({ data: { orderNumber: number, paymentKey: input.idempotencyKey, customerAccessTokenHash: hashSecret(accessToken), email: input.email, customerName: `${input.firstName} ${input.lastName}`, phone: input.phone || null, format: input.format, quantity: input.quantity, unitPrice: format.priceCents, shippingAmount, totalAmount, shippingMethod: input.shippingMethod, addressLine1: input.format === "EBOOK" ? null : input.address1, addressLine2: input.format === "EBOOK" ? null : input.address2 || null, city: input.format === "EBOOK" ? null : input.city, stateProvince: input.format === "EBOOK" ? null : input.state, postalCode: input.format === "EBOOK" ? null : input.postalCode, country: input.format === "EBOOK" ? null : input.country } }); await enqueueOrderReceivedEmail(tx, created); return created; }); }
     catch { const duplicate = await db.order.findUnique({ where: { paymentKey: input.idempotencyKey } }); if (duplicate) return NextResponse.json({ ok: true, orderNumber: duplicate.orderNumber, status: duplicate.paymentStatus }); throw new Error("We could not create the order."); }
     let payment;
     let attemptId: string | undefined;
+    let paymentCompleted = false;
     try {
       const attempt = await db.paymentAttempt.create({ data: { orderId: order.id, attemptTokenHash: hashSecret(input.idempotencyKey), squareIdempotencyKey: randomUUID() } });
       attemptId = attempt.id;
       payment = await createSquarePayment({ sourceId: input.paymentToken, amountCents: totalAmount, idempotencyKey: attempt.squareIdempotencyKey, orderNumber: number, email: input.email });
       if (payment.status !== "COMPLETED") throw new Error("Square did not complete the payment.");
+      paymentCompleted = true;
       await db.$transaction(async (tx) => {
         const paidOrder = await tx.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID", squarePaymentId: payment.id, squareOrderId: payment.order_id } });
         await tx.paymentAttempt.update({ where: { id: attempt.id }, data: { status: "SUCCEEDED", squarePaymentId: payment.id } });
         await enqueuePaidOrderEmail(tx, paidOrder);
       });
     } catch (error) {
-      await db.$transaction([db.order.update({ where: { id: order.id }, data: { paymentStatus: "FAILED" } }), ...(attemptId ? [db.paymentAttempt.update({ where: { id: attemptId }, data: { status: "FAILED", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Payment provider error" } })] : [])]);
+      await db.$transaction(async (tx) => {
+        const failedOrder = await tx.order.update({ where: { id: order.id }, data: { paymentStatus: "FAILED" } });
+        if (attemptId) {
+          await tx.paymentAttempt.update({ where: { id: attemptId }, data: { status: "FAILED", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Payment provider error" } });
+          if (!paymentCompleted) await enqueuePaymentFailedEmail(tx, failedOrder, attemptId);
+        }
+      });
       return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Square could not process the payment.", retryOrderNumber: order.orderNumber, orderAccessToken: accessToken }, { status: 402 });
     }
     if (input.format !== "EBOOK") {

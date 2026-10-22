@@ -61,7 +61,10 @@ enum TransactionalEmailStatus {
 }
 
 enum TransactionalEmailEventType {
+  ORDER_RECEIVED
   ORDER_PAID
+  PAYMENT_FAILED
+  LULU_FULFILLMENT_SUBMITTED
   ORDER_SHIPPED
   ADMIN_FULFILLMENT_ATTENTION
 }
