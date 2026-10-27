@@ -2,7 +2,7 @@ import { createHash, createHmac, timingSafeEqual } from "crypto";
 import { Prisma, type FulfillmentStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { enqueueFulfillmentAttentionEmail, enqueueFulfillmentSubmittedEmail, enqueueShippedOrderEmail } from "@/lib/commerce/email";
+import { enqueueFulfillmentAttentionEmail, enqueueShippedOrderEmail } from "@/lib/commerce/email";
 import { safeTrackingUrl } from "@/lib/commerce/security";
 
 function isWebhookReplay(error: unknown) {
@@ -45,7 +45,6 @@ export async function POST(request: Request) {
       await tx.order.updateMany({ where: { luluPrintJobId: printJobId }, data: { luluStatus: status, fulfillmentStatus, trackingNumber: data.tracking_number, trackingUrl: safeTrackingUrl(data.tracking_url) } });
       const orders = await tx.order.findMany({ where: { luluPrintJobId: printJobId } });
       for (const order of orders) {
-        if (status?.toUpperCase() === "CREATED") await enqueueFulfillmentSubmittedEmail(tx, order);
         if (fulfillmentStatus === "SHIPPED") await enqueueShippedOrderEmail(tx, order);
         if (fulfillmentStatus === "FULFILLMENT_FAILED" || fulfillmentStatus === "MANUAL_REVIEW") await enqueueFulfillmentAttentionEmail(tx, order);
       }

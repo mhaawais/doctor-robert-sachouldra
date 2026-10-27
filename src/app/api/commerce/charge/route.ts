@@ -5,7 +5,7 @@ import { chargeSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, directFormat, productFormat } from "@/lib/commerce/config";
 import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerce/lulu";
 import { createSquarePayment } from "@/lib/commerce/square";
-import { enqueueFulfillmentAttentionEmail, enqueueOrderReceivedEmail, enqueuePaidOrderEmail, enqueuePaymentFailedEmail } from "@/lib/commerce/email";
+import { enqueueFulfillmentAttentionEmail, enqueueFulfillmentSubmittedEmail, enqueueOrderReceivedEmail, enqueuePaidOrderEmail, enqueuePaymentFailedEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
 import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret } from "@/lib/commerce/security";
 
@@ -65,7 +65,10 @@ export async function POST(request: Request) {
         const printJob = await createPrintJob({ ...input, orderNumber: number });
         const luluPrintJobId = printJob.id ?? printJob.print_job?.id;
         const luluStatus = typeof printJob.status === "string" ? printJob.status : printJob.status?.name ?? "SUBMITTED";
-        await db.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: luluPrintJobId == null ? null : String(luluPrintJobId), luluStatus } });
+        await db.$transaction(async (tx) => {
+          const submittedOrder = await tx.order.update({ where: { id: order.id }, data: { fulfillmentStatus: "FULFILLMENT_SUBMITTED", luluPrintJobId: luluPrintJobId == null ? null : String(luluPrintJobId), luluStatus } });
+          await enqueueFulfillmentSubmittedEmail(tx, submittedOrder);
+        });
       } catch (error) {
         const diagnostic = error instanceof LuluRequestError ? error.diagnostic : { operation: "POST /print-jobs/", status: 0, detail: "Unexpected provider failure" };
         console.error("Lulu fulfillment submission failed.", { orderNumber: number, operation: diagnostic.operation, status: diagnostic.status, detail: diagnostic.detail, podPackageId: printFormat.podPackageId, pageCount: printFormat.pageCount, pdfSources: { interiorConfigured: Boolean(printFormat.interiorUrl), coverConfigured: Boolean(printFormat.coverUrl), providerValidation: diagnostic.detail && /(interior|cover|pdf|source_url)/i.test(diagnostic.detail) ? "reported by Lulu" : "not reported by Lulu" } });
