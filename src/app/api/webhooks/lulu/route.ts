@@ -5,6 +5,19 @@ import { db } from "@/lib/db";
 import { enqueueFulfillmentAttentionEmail, enqueueShippedOrderEmail } from "@/lib/commerce/email";
 import { safeTrackingUrl } from "@/lib/commerce/security";
 
+type LuluTrackingLineItem = {
+  tracking_id?: string;
+  tracking_urls?: string[] | null;
+  status?: { messages?: { tracking_id?: string; tracking_urls?: string[] | null } };
+};
+
+function trackingFromLulu(data: { tracking_number?: string; tracking_url?: string; line_items?: LuluTrackingLineItem[] }) {
+  const lineItem = data.line_items?.find((item) => item.tracking_id || item.status?.messages?.tracking_id || item.tracking_urls?.length || item.status?.messages?.tracking_urls?.length);
+  const trackingNumber = data.tracking_number || lineItem?.tracking_id || lineItem?.status?.messages?.tracking_id;
+  const trackingUrl = safeTrackingUrl(data.tracking_url ?? lineItem?.tracking_urls?.[0] ?? lineItem?.status?.messages?.tracking_urls?.[0]);
+  return { trackingNumber: trackingNumber || undefined, trackingUrl };
+}
+
 function isWebhookReplay(error: unknown) {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
   const target = error.meta?.target;
@@ -19,7 +32,7 @@ export async function POST(request: Request) {
   const expectedBuffer = Buffer.from(expected);
   const signatureBuffer = signature ? Buffer.from(signature) : null;
   if (!signatureBuffer || !expected || expectedBuffer.length !== signatureBuffer.length || !timingSafeEqual(expectedBuffer, signatureBuffer)) return new NextResponse("Invalid signature", { status: 401 });
-  const event = JSON.parse(raw) as { id?: string; topic?: string; data?: { id?: string | number; status?: { name?: string } | string; tracking_number?: string; tracking_url?: string } };
+  const event = JSON.parse(raw) as { id?: string; topic?: string; data?: { id?: string | number; status?: { name?: string } | string; tracking_number?: string; tracking_url?: string; line_items?: LuluTrackingLineItem[] } };
   const externalId = event.id ?? createHash("sha256").update(raw).digest("hex");
   const data = event.data;
   try {
@@ -31,6 +44,7 @@ export async function POST(request: Request) {
 
       const printJobId = String(data.id);
       const status = typeof data.status === "string" ? data.status : data.status?.name;
+      const tracking = trackingFromLulu(data);
       const fulfillmentStatusByLuluStatus: Record<string, FulfillmentStatus> = {
         UNPAID: "FULFILLMENT_SUBMITTED",
         CREATED: "FULFILLMENT_SUBMITTED",
@@ -42,7 +56,7 @@ export async function POST(request: Request) {
         FAILED: "FULFILLMENT_FAILED",
       };
       const fulfillmentStatus = fulfillmentStatusByLuluStatus[status?.toUpperCase() ?? ""] ?? "IN_PRODUCTION";
-      await tx.order.updateMany({ where: { luluPrintJobId: printJobId }, data: { luluStatus: status, fulfillmentStatus, trackingNumber: data.tracking_number, trackingUrl: safeTrackingUrl(data.tracking_url) } });
+      await tx.order.updateMany({ where: { luluPrintJobId: printJobId }, data: { luluStatus: status, fulfillmentStatus, ...(tracking.trackingNumber ? { trackingNumber: tracking.trackingNumber } : {}), ...(tracking.trackingUrl ? { trackingUrl: tracking.trackingUrl } : {}) } });
       const orders = await tx.order.findMany({ where: { luluPrintJobId: printJobId } });
       for (const order of orders) {
         if (fulfillmentStatus === "SHIPPED") await enqueueShippedOrderEmail(tx, order);
