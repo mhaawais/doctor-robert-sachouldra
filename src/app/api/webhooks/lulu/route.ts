@@ -11,6 +11,18 @@ type LuluTrackingLineItem = {
   status?: { messages?: { tracking_id?: string; tracking_urls?: string[] | null } };
 };
 
+const fulfillmentStatusByLuluStatus: Record<string, FulfillmentStatus> = {
+  UNPAID: "FULFILLMENT_SUBMITTED",
+  CREATED: "FULFILLMENT_SUBMITTED",
+  PRODUCTION_READY: "IN_PRODUCTION",
+  IN_PRODUCTION: "IN_PRODUCTION",
+  PRODUCTION_DELAYED: "IN_PRODUCTION",
+  SHIPPED: "SHIPPED",
+  CANCELLED: "CANCELLED",
+  REJECTED: "FULFILLMENT_FAILED",
+  FAILED: "FULFILLMENT_FAILED",
+};
+
 function trackingFromLulu(data: { tracking_number?: string; tracking_url?: string; line_items?: LuluTrackingLineItem[] }) {
   const lineItem = data.line_items?.find((item) => item.tracking_id || item.status?.messages?.tracking_id || item.tracking_urls?.length || item.status?.messages?.tracking_urls?.length);
   const trackingNumber = data.tracking_number || lineItem?.tracking_id || lineItem?.status?.messages?.tracking_id;
@@ -44,18 +56,12 @@ export async function POST(request: Request) {
 
       const printJobId = String(data.id);
       const status = typeof data.status === "string" ? data.status : data.status?.name;
+      const normalizedStatus = status?.trim().toUpperCase();
+      const fulfillmentStatus = normalizedStatus ? fulfillmentStatusByLuluStatus[normalizedStatus] : undefined;
+      // Keep authenticated unknown events for audit/replay protection, but do
+      // not let an unfamiliar provider state alter known order state.
+      if (!fulfillmentStatus) return;
       const tracking = trackingFromLulu(data);
-      const fulfillmentStatusByLuluStatus: Record<string, FulfillmentStatus> = {
-        UNPAID: "FULFILLMENT_SUBMITTED",
-        CREATED: "FULFILLMENT_SUBMITTED",
-        IN_PRODUCTION: "IN_PRODUCTION",
-        PRODUCTION_DELAYED: "IN_PRODUCTION",
-        SHIPPED: "SHIPPED",
-        CANCELLED: "CANCELLED",
-        REJECTED: "FULFILLMENT_FAILED",
-        FAILED: "FULFILLMENT_FAILED",
-      };
-      const fulfillmentStatus = fulfillmentStatusByLuluStatus[status?.toUpperCase() ?? ""] ?? "IN_PRODUCTION";
       await tx.order.updateMany({ where: { luluPrintJobId: printJobId }, data: { luluStatus: status, fulfillmentStatus, ...(tracking.trackingNumber ? { trackingNumber: tracking.trackingNumber } : {}), ...(tracking.trackingUrl ? { trackingUrl: tracking.trackingUrl } : {}) } });
       const orders = await tx.order.findMany({ where: { luluPrintJobId: printJobId } });
       for (const order of orders) {

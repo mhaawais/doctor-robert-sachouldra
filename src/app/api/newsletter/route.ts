@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enqueueNewsletterReceivedEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
+import { browserWriteRejection } from "@/lib/commerce/browser-write";
 import { newsletterSchema, normalizeEmail } from "@/lib/forms-core";
 
 const success = { ok: true, message: "Thank you — your email has been received." };
 
 export async function POST(request: Request) {
+  const rejected = browserWriteRejection(request);
+  if (rejected) return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.status });
   if (!await enforceRateLimit({ scope: "newsletter", request, max: 8, windowMs: 30 * 60_000 })) {
     return NextResponse.json({ ok: false, error: "Too many attempts. Please try again later." }, { status: 429 });
   }

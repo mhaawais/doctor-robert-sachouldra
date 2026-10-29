@@ -23,7 +23,7 @@ function isTransitional(order: OrderStatusSnapshot) {
   if (order.paymentStatus === "PENDING_PAYMENT") return true;
   if (order.paymentStatus !== "PAID" || order.format === "EBOOK") return false;
   const luluStatus = order.luluStatus?.toUpperCase();
-  if (luluStatus) return ["UNPAID", "CREATED", "IN_PRODUCTION", "PRODUCTION_DELAYED"].includes(luluStatus);
+  if (luluStatus) return ["UNPAID", "CREATED", "PRODUCTION_READY", "IN_PRODUCTION", "PRODUCTION_DELAYED"].includes(luluStatus);
   return ["NOT_SUBMITTED", "FULFILLMENT_SUBMITTED", "IN_PRODUCTION"].includes(order.fulfillmentStatus);
 }
 

@@ -3,6 +3,7 @@ import { quoteSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, productFormat } from "@/lib/commerce/config";
 import { costCalculation, shippingOptions } from "@/lib/commerce/lulu";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
+import { browserWriteRejection } from "@/lib/commerce/browser-write";
 import { createReviewedQuote } from "@/lib/commerce/security";
 
 function cents(value: unknown) {
@@ -29,6 +30,8 @@ function shippingOption(option: Record<string, unknown>) {
 }
 
 export async function POST(request: Request) {
+  const rejected = browserWriteRejection(request);
+  if (rejected) return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.status });
   if (!await enforceRateLimit({ scope: "quote", request, max: 20, windowMs: 60_000 })) return NextResponse.json({ ok: false, error: "Too many quote requests. Please wait and try again." }, { status: 429 });
   const parsed = quoteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Please check your shipping details." }, { status: 422 });
@@ -45,6 +48,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const rejected = browserWriteRejection(request);
+  if (rejected) return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.status });
   if (!await enforceRateLimit({ scope: "quote-confirm", request, max: 20, windowMs: 60_000 })) return NextResponse.json({ ok: false, error: "Too many quote requests. Please wait and try again." }, { status: 429 });
   const body = await request.json().catch(() => null);
   const parsed = quoteSchema.safeParse(body);

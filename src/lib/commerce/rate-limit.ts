@@ -1,8 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { rateLimitKey } from "@/lib/commerce/rate-limit-core";
+import { rateLimitKey, type TrustedHeaderSource } from "@/lib/commerce/rate-limit-core";
 
-type Limit = { scope: string; request: Request; max: number; windowMs: number };
+type Limit = { scope: string; request: Request | TrustedHeaderSource; max: number; windowMs: number };
 
 /** Database buckets remain effective across serverless instances. */
 export async function enforceRateLimit({ scope, request, max, windowMs }: Limit) {

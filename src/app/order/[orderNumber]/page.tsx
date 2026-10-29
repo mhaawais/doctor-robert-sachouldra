@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function OrderPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const orderNumber = (await params).orderNumber;
   const requestHeaders = await headers();
-  const allowed = await enforceRateLimit({ scope: "order-lookup", request: new Request(`https://order-lookup.invalid/${orderNumber}`, { headers: { "x-forwarded-for": requestHeaders.get("x-forwarded-for") ?? "" } }), max: 30, windowMs: 60_000 });
+  const allowed = await enforceRateLimit({ scope: "order-lookup", request: requestHeaders, max: 30, windowMs: 60_000 });
   const order = allowed ? await getOrderFromSession(orderNumber, (await cookies()).get(orderCookieName(orderNumber))?.value) : null;
   if (!order) notFound();
 

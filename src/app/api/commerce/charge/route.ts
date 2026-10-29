@@ -4,19 +4,22 @@ import { db } from "@/lib/db";
 import { chargeSchema } from "@/lib/commerce/validation";
 import { checkoutEnabled, directFormat, productFormat } from "@/lib/commerce/config";
 import { costCalculation, createPrintJob, LuluRequestError } from "@/lib/commerce/lulu";
-import { createSquarePayment } from "@/lib/commerce/square";
+import { createSquarePayment, SquarePaymentError } from "@/lib/commerce/square";
 import { enqueueFulfillmentAttentionEmail, enqueueFulfillmentSubmittedEmail, enqueueOrderReceivedEmail, enqueuePaidOrderEmail, enqueuePaymentFailedEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
+import { browserWriteRejection } from "@/lib/commerce/browser-write";
 import { createReviewedQuote, hashSecret, matchesReviewedQuote, matchesSecret, newSecret } from "@/lib/commerce/security";
 
 const orderNumber = () => `RS-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
 export async function POST(request: Request) {
+  const rejected = browserWriteRejection(request);
+  if (rejected) return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.status });
   if (!await enforceRateLimit({ scope: "charge", request, max: 8, windowMs: 60_000 })) return NextResponse.json({ ok: false, error: "Too many payment attempts. Please wait and try again." }, { status: 429 });
   const parsed = chargeSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Please check your checkout details." }, { status: 422 });
   const input = parsed.data;
-  if (!checkoutEnabled(input.format)) return NextResponse.json({ ok: false, error: "Direct checkout is not configured yet." }, { status: 503 });
+  if (!checkoutEnabled(input.format)) return NextResponse.json({ ok: false, error: "Checkout is temporarily unavailable. Please try again later." }, { status: 503 });
   const existing = await db.order.findUnique({ where: { paymentKey: input.idempotencyKey } });
   if (existing) return NextResponse.json({ ok: true, orderNumber: existing.orderNumber, status: existing.paymentStatus });
   try {
@@ -50,14 +53,20 @@ export async function POST(request: Request) {
         await enqueuePaidOrderEmail(tx, paidOrder);
       });
     } catch (error) {
+      const failureReason = error instanceof SquarePaymentError
+        ? `Square request failed (HTTP ${error.diagnostic.status}${error.diagnostic.code ? `, ${error.diagnostic.code}` : ""}).`
+        : error instanceof Error ? error.message.slice(0, 500) : "Payment provider error";
+      if (error instanceof SquarePaymentError) {
+        console.warn("Square payment failed.", { orderNumber: number, status: error.diagnostic.status, code: error.diagnostic.code });
+      }
       await db.$transaction(async (tx) => {
         const failedOrder = await tx.order.update({ where: { id: order.id }, data: { paymentStatus: "FAILED" } });
         if (attemptId) {
-          await tx.paymentAttempt.update({ where: { id: attemptId }, data: { status: "FAILED", failureReason: error instanceof Error ? error.message.slice(0, 500) : "Payment provider error" } });
+          await tx.paymentAttempt.update({ where: { id: attemptId }, data: { status: "FAILED", failureReason } });
           if (!paymentCompleted) await enqueuePaymentFailedEmail(tx, failedOrder, attemptId);
         }
       });
-      return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Square could not process the payment.", retryOrderNumber: order.orderNumber, orderAccessToken: accessToken }, { status: 402 });
+      return NextResponse.json({ ok: false, error: "We couldn't process your payment. Please check your card details and try again.", retryOrderNumber: order.orderNumber, orderAccessToken: accessToken }, { status: 402 });
     }
     if (input.format !== "EBOOK") {
       const printFormat = directFormat(input.format);

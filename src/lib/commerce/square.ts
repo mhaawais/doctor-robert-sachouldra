@@ -2,6 +2,12 @@ import "server-only";
 
 const squareBaseUrl = () => process.env.SQUARE_ENVIRONMENT === "production" ? "https://connect.squareup.com" : "https://connect.squareupsandbox.com";
 
+export class SquarePaymentError extends Error {
+  constructor(readonly diagnostic: { status: number; code: string | null }) {
+    super("Square payment request failed.");
+  }
+}
+
 export async function createSquarePayment(input: { sourceId: string; amountCents: number; idempotencyKey: string; orderNumber: string; email: string }) {
   const accessToken = process.env.SQUARE_ACCESS_TOKEN;
   const locationId = process.env.SQUARE_LOCATION_ID;
@@ -12,8 +18,11 @@ export async function createSquarePayment(input: { sourceId: string; amountCents
     body: JSON.stringify({ source_id: input.sourceId, idempotency_key: input.idempotencyKey, location_id: locationId, amount_money: { amount: input.amountCents, currency: "USD" }, reference_id: input.orderNumber, buyer_email_address: input.email, autocomplete: true }),
     cache: "no-store",
   });
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.errors?.[0]?.detail ?? "Square could not process the payment.");
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    const code = typeof body?.errors?.[0]?.code === "string" ? body.errors[0].code.slice(0, 100) : null;
+    throw new SquarePaymentError({ status: response.status, code });
+  }
   return body.payment as { id: string; order_id?: string; status: string };
 }
 

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enqueueContactReceivedEmail } from "@/lib/commerce/email";
 import { enforceRateLimit } from "@/lib/commerce/rate-limit";
+import { browserWriteRejection } from "@/lib/commerce/browser-write";
 import { contactSchema, normalizeEmail, sanitizeFormText } from "@/lib/forms-core";
 
 const success = { ok: true, message: "Thank you — your message has been received." };
@@ -12,6 +13,8 @@ function isIdempotencyConflict(error: unknown) {
 }
 
 export async function POST(request: Request) {
+  const rejected = browserWriteRejection(request);
+  if (rejected) return NextResponse.json({ ok: false, error: rejected.error }, { status: rejected.status });
   const body = await request.json().catch(() => null);
   const parsed = contactSchema.safeParse(body);
   if (!parsed.success) {
