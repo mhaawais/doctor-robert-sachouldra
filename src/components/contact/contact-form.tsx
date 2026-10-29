@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, AlertCircle, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +53,7 @@ export function ContactForm() {
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [state, setState] = useState<FormState>("idle");
   const [feedback, setFeedback] = useState("");
+  const idempotencyKey = useRef(crypto.randomUUID());
 
   function set<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields((f) => ({ ...f, [key]: value }));
@@ -74,7 +75,7 @@ export function ContactForm() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fields),
+        body: JSON.stringify({ ...fields, idempotencyKey: idempotencyKey.current }),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
 
@@ -113,6 +114,7 @@ export function ContactForm() {
           type="button"
           onClick={() => {
             setFields(initialFields);
+            idempotencyKey.current = crypto.randomUUID();
             setState("idle");
           }}
           className="mt-7 rounded-sm border border-ink/25 px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink transition-colors hover:border-gold hover:text-gold-deep"

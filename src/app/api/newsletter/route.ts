@@ -1,88 +1,32 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { db } from "@/lib/db";
+import { enqueueNewsletterReceivedEmail } from "@/lib/commerce/email";
+import { enforceRateLimit } from "@/lib/commerce/rate-limit";
+import { newsletterSchema, normalizeEmail } from "@/lib/forms-core";
 
-/**
- * NEWSLETTER API
- * --------------
- * - Email is validated (zod) and stored via Prisma (SQLite).
- * - Idempotent: re-subscribing an existing address returns success.
- * - Integration point: forward the address to Mailchimp / ConvertKit /
- *   Resend via environment variables — see README ("Configuring the
- *   newsletter"). No fake provider claims are made.
- */
-
-const newsletterSchema = z.object({
-  email: z.string().trim().email("Please enter a valid email address").max(320),
-  /** Honeypot — must stay empty. */
-  website: z.string().optional().or(z.literal("")),
-});
-
-const hits = new Map<string, number[]>();
-const WINDOW_MS = 30 * 60 * 1000;
-const MAX_HITS = 8;
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const list = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (list.length >= MAX_HITS) {
-    hits.set(ip, list);
-    return true;
-  }
-  list.push(now);
-  hits.set(ip, list);
-  return false;
-}
+const success = { ok: true, message: "Thank you — your email has been received." };
 
 export async function POST(request: Request) {
+  if (!await enforceRateLimit({ scope: "newsletter", request, max: 8, windowMs: 30 * 60_000 })) {
+    return NextResponse.json({ ok: false, error: "Too many attempts. Please try again later." }, { status: 429 });
+  }
+  const body = await request.json().catch(() => null);
+  const parsed = newsletterSchema.safeParse(body);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0]?.message ?? "Please enter a valid email address.";
+    return NextResponse.json({ ok: false, error: first }, { status: 422 });
+  }
+  if (parsed.data.website) return NextResponse.json(success);
+
+  const email = normalizeEmail(parsed.data.email);
   try {
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (rateLimited(ip)) {
-      return NextResponse.json(
-        { ok: false, error: "Too many attempts. Please try again later." },
-        { status: 429 }
-      );
-    }
-
-    const body = await request.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid request." },
-        { status: 400 }
-      );
-    }
-
-    const parsed = newsletterSchema.safeParse(body);
-    if (!parsed.success) {
-      const first = parsed.error.issues[0]?.message ?? "Please enter a valid email address.";
-      return NextResponse.json({ ok: false, error: first }, { status: 422 });
-    }
-
-    if (parsed.data.website) {
-      // Honeypot: silently accept bots without storing
-      return NextResponse.json({ ok: true, message: "Thank you — you're on the list." });
-    }
-
-    const email = parsed.data.email.toLowerCase();
-
-    // TODO integration point: also POST the subscriber to the configured
-    // email provider here (env-driven), keeping local storage as the record.
-    await db.newsletterSubscriber.upsert({
-      where: { email },
-      update: {},
-      create: { email },
+    await db.$transaction(async (tx) => {
+      const subscriber = await tx.newsletterSubscriber.upsert({ where: { email }, update: {}, create: { email } });
+      await enqueueNewsletterReceivedEmail(tx, subscriber);
     });
-
-    return NextResponse.json({
-      ok: true,
-      message: "Thank you — you're on the list. Robert's next update will land in your inbox.",
-    });
+    return NextResponse.json(success);
   } catch (error) {
-    console.error("[newsletter] subscription failed:", error);
-    return NextResponse.json(
-      { ok: false, error: "We couldn't subscribe you right now. Please try again." },
-      { status: 500 }
-    );
+    console.error("[newsletter] subscription failed", { reason: error instanceof Error ? error.name : "unknown" });
+    return NextResponse.json({ ok: false, error: "We couldn't subscribe you right now. Please try again." }, { status: 500 });
   }
 }

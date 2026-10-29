@@ -1,17 +1,20 @@
 import "server-only";
 
 import { createHmac } from "crypto";
-import type { Order, Prisma, TransactionalEmail } from "@prisma/client";
+import type { ContactMessage, NewsletterSubscriber, Order, Prisma, TransactionalEmail } from "@prisma/client";
 import { db } from "@/lib/db";
 import { hashSecret, orderAccessUrl, safeTrackingUrl } from "@/lib/commerce/security";
+import { sendResendEmail } from "@/lib/commerce/email-core";
 
 type DbClient = Prisma.TransactionClient | typeof db;
 type EmailPayload = { customerName?: string; format?: string; quantity?: number; totalAmount?: number; shippingMethod?: string; trackingNumber?: string | null; trackingUrl?: string | null; fulfillmentStatus?: string };
-type OutboundEmail = { subject: string; text: string; html: string };
+type OutboundEmail = { subject: string; text: string; html: string; replyTo?: string };
+type EmailEvent = TransactionalEmail & { order: Order | null; contactMessage: ContactMessage | null; newsletterSubscriber: NewsletterSubscriber | null };
 
 const MAX_ATTEMPTS = 8;
 const LOCK_TIMEOUT_MS = 15 * 60_000;
 const ACCESS_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+const FORM_NOTIFICATION_RECIPIENT = "admin@doctorrobertbooks.com";
 
 function escapeHtml(value: string) { return value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] ?? character); }
 function retryDelayMs(attempt: number) { return Math.min(6 * 60 * 60_000, 60_000 * 2 ** Math.max(0, attempt - 1)); }
@@ -49,6 +52,16 @@ export async function enqueueFulfillmentAttentionEmail(client: DbClient, order: 
   return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "ADMIN_FULFILLMENT_ATTENTION", recipient, payload: payloadForOrder(order), orderId: order.id } });
 }
 
+export async function enqueueContactReceivedEmail(client: DbClient, message: ContactMessage) {
+  const eventKey = `contact:${message.id}:received`;
+  return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "CONTACT_RECEIVED", recipient: FORM_NOTIFICATION_RECIPIENT, payload: {}, contactMessageId: message.id } });
+}
+
+export async function enqueueNewsletterReceivedEmail(client: DbClient, subscriber: NewsletterSubscriber) {
+  const eventKey = `newsletter:${subscriber.id}:received`;
+  return client.transactionalEmail.upsert({ where: { eventKey }, update: {}, create: { eventKey, eventType: "NEWSLETTER_RECEIVED", recipient: FORM_NOTIFICATION_RECIPIENT, payload: {}, newsletterSubscriberId: subscriber.id } });
+}
+
 function emailAccessToken(eventKey: string) {
   const secret = process.env.ORDER_EMAIL_ACCESS_SECRET;
   if (!secret) throw new EmailError("Order email access is not configured.", false);
@@ -61,7 +74,20 @@ async function orderLink(event: TransactionalEmail, order: Order) {
   return orderAccessUrl(order.orderNumber, token);
 }
 
-function renderEmail(event: TransactionalEmail, order: Order, statusUrl: string | null): OutboundEmail {
+function renderEmail(event: EmailEvent, statusUrl: string | null): OutboundEmail {
+  if (event.eventType === "CONTACT_RECEIVED") {
+    const message = event.contactMessage;
+    if (!message) throw new EmailError("Contact message is unavailable.", false);
+    const reason = message.reason ? `\nReason: ${message.reason}` : "";
+    return { subject: `New website contact message · ${message.subject}`, replyTo: message.email, text: `New contact message\n\nFrom: ${message.name} <${message.email}>\nSubject: ${message.subject}${reason}\n\n${message.message}`, html: `<p><strong>New website contact message</strong></p><p><strong>From:</strong> ${escapeHtml(message.name)} (${escapeHtml(message.email)})<br/><strong>Subject:</strong> ${escapeHtml(message.subject)}${message.reason ? `<br/><strong>Reason:</strong> ${escapeHtml(message.reason)}` : ""}</p><p>${escapeHtml(message.message).replaceAll("\n", "<br/>")}</p>` };
+  }
+  if (event.eventType === "NEWSLETTER_RECEIVED") {
+    const subscriber = event.newsletterSubscriber;
+    if (!subscriber) throw new EmailError("Newsletter subscriber is unavailable.", false);
+    return { subject: "New newsletter submission", text: `A visitor submitted a newsletter email address:\n\n${subscriber.email}`, html: `<p><strong>New newsletter submission</strong></p><p>${escapeHtml(subscriber.email)}</p>` };
+  }
+  const order = event.order;
+  if (!order) throw new EmailError("Order is unavailable.", false);
   const payload = event.payload as EmailPayload;
   const name = payload.customerName || order.customerName;
   const format = payload.format || order.format;
@@ -95,10 +121,10 @@ async function sendWithResend(event: TransactionalEmail, outbound: OutboundEmail
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.ORDER_EMAIL_FROM;
   if (!apiKey || !from) throw new EmailError("Transactional email provider is not configured.", false);
-  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "Idempotency-Key": event.eventKey }, body: JSON.stringify({ from, to: [event.recipient], ...(process.env.ORDER_EMAIL_REPLY_TO ? { reply_to: process.env.ORDER_EMAIL_REPLY_TO } : {}), subject: outbound.subject, text: outbound.text, html: outbound.html }), cache: "no-store" });
-  const body = await response.json().catch(() => null) as { id?: string } | null;
-  if (!response.ok) throw new EmailError(`Email provider returned HTTP ${response.status}.`, response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500);
-  return body?.id ?? null;
+  const replyTo = outbound.replyTo ?? process.env.ORDER_EMAIL_REPLY_TO;
+  const result = await sendResendEmail(fetch, event.eventKey, apiKey, { from, recipient: event.recipient, replyTo, subject: outbound.subject, text: outbound.text, html: outbound.html });
+  if (!result.ok) throw new EmailError(`Email provider returned HTTP ${result.status}.`, result.status === 408 || result.status === 409 || result.status === 429 || result.status >= 500);
+  return result.providerMessageId;
 }
 
 async function claimNextEmail() {
@@ -108,13 +134,13 @@ async function claimNextEmail() {
   if (!candidate) return null;
   const claimed = await db.transactionalEmail.updateMany({ where: { id: candidate.id, status: "PENDING", nextAttemptAt: { lte: now } }, data: { status: "PROCESSING", lockedAt: now, attempts: { increment: 1 }, lastError: null } });
   if (!claimed.count) return null;
-  return db.transactionalEmail.findUnique({ where: { id: candidate.id }, include: { order: true } });
+  return db.transactionalEmail.findUnique({ where: { id: candidate.id }, include: { order: true, contactMessage: true, newsletterSubscriber: true } });
 }
 
-async function processEmail(event: TransactionalEmail & { order: Order }) {
+async function processEmail(event: EmailEvent) {
   try {
-    const statusUrl = event.eventType === "ADMIN_FULFILLMENT_ATTENTION" ? null : await orderLink(event, event.order);
-    const providerMessageId = await sendWithResend(event, renderEmail(event, event.order, statusUrl));
+    const statusUrl = event.order && event.eventType !== "ADMIN_FULFILLMENT_ATTENTION" ? await orderLink(event, event.order) : null;
+    const providerMessageId = await sendWithResend(event, renderEmail(event, statusUrl));
     await db.transactionalEmail.update({ where: { id: event.id }, data: { status: "SENT", providerMessageId, sentAt: new Date(), lockedAt: null, lastError: null } });
     return "sent" as const;
   } catch (error) {

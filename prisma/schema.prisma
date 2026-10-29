@@ -8,19 +8,22 @@ datasource db {
 }
 
 model ContactMessage {
-  id        String   @id @default(cuid())
-  name      String
-  email     String
-  subject   String
-  reason    String?
-  message   String
-  createdAt DateTime @default(now())
+  id                  String               @id @default(cuid())
+  idempotencyKey      String?              @unique
+  name                String
+  email               String
+  subject             String
+  reason              String?
+  message             String
+  createdAt           DateTime             @default(now())
+  transactionalEmails TransactionalEmail[]
 }
 
 model NewsletterSubscriber {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  createdAt           DateTime             @default(now())
+  transactionalEmails TransactionalEmail[]
 }
 
 enum PaymentStatus {
@@ -61,6 +64,8 @@ enum TransactionalEmailStatus {
 }
 
 enum TransactionalEmailEventType {
+  CONTACT_RECEIVED
+  NEWSLETTER_RECEIVED
   ORDER_RECEIVED
   ORDER_PAID
   PAYMENT_FAILED
@@ -121,11 +126,17 @@ model TransactionalEmail {
   sentAt            DateTime?
   createdAt         DateTime                    @default(now())
   updatedAt         DateTime                    @updatedAt
-  orderId           String
-  order             Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId                String?
+  order                  Order?                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  contactMessageId       String?
+  contactMessage         ContactMessage?        @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+  newsletterSubscriberId String?
+  newsletterSubscriber   NewsletterSubscriber?  @relation(fields: [newsletterSubscriberId], references: [id], onDelete: Cascade)
 
   @@index([status, nextAttemptAt])
   @@index([orderId, eventType])
+  @@index([contactMessageId, eventType])
+  @@index([newsletterSubscriberId, eventType])
 }
 
 model OrderAccessSession {

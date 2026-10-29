@@ -18,6 +18,7 @@ export function NewsletterForm({
   id?: string;
 }) {
   const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function NewsletterForm({
       const res = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed }),
+        body: JSON.stringify({ email: trimmed, website }),
       });
       const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
 
@@ -115,6 +116,10 @@ export function NewsletterForm({
             "Subscribe"
           )}
         </button>
+      </div>
+      <div className="absolute -left-[9999px]" aria-hidden="true">
+        <label htmlFor={`${id}-website`}>Website (leave empty)</label>
+        <input id={`${id}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} />
       </div>
       {error ? (
         <p
